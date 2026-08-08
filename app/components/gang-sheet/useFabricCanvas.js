@@ -312,27 +312,51 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     canvas.requestRenderAll();
   }, []);
 
-  const tidyCanvas = useCallback(() => {
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-    const objects = canvas.getObjects().filter((obj) => obj.data?.id);
-    const items = objects.map((obj) => ({
-      id: obj.data.id,
-      widthIn: pxToIn(obj.getScaledWidth()),
-      heightIn: pxToIn(obj.getScaledHeight()),
-    }));
-    const { placements } = packShelf(items, sheetWidthIn);
-    const byId = new Map(placements.map((p) => [p.id, p]));
-    objects.forEach((obj) => {
-      const placement = byId.get(obj.data.id);
-      if (!placement) return;
-      obj.set({ left: inToPx(placement.xIn), top: inToPx(placement.yIn) });
-      obj.setCoords();
-      constrainToSheet(obj, sheetPxRef.current.w, sheetPxRef.current.h);
-    });
-    canvas.requestRenderAll();
-    emitItems(canvas, onItemsChangeRef.current);
-  }, [sheetWidthIn]);
+  // Repacks everything currently on the sheet into a guaranteed
+  // non-overlapping layout. Returns the length the result consumes so the
+  // caller can grow the sheet if it no longer fits.
+  const tidyCanvas = useCallback(
+    (options = {}) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return { usedHeightIn: 0 };
+
+      const objects = canvas.getObjects().filter((obj) => obj.data?.id);
+      // Pack by each object's rotated hull, not its unrotated width/height,
+      // so a rotated design reserves the space it actually occupies.
+      const items = objects.map((obj) => {
+        const box = obj.getBoundingRect();
+        return {
+          id: obj.data.id,
+          widthIn: pxToIn(box.width),
+          heightIn: pxToIn(box.height),
+          offsetXPx: (obj.left ?? 0) - box.left,
+          offsetYPx: (obj.top ?? 0) - box.top,
+        };
+      });
+
+      const { placements, usedHeightIn } = packShelf(items, sheetWidthIn, options);
+      const byId = new Map(placements.map((p) => [p.id, p]));
+      const offsets = new Map(items.map((i) => [i.id, i]));
+
+      objects.forEach((obj) => {
+        const placement = byId.get(obj.data.id);
+        if (!placement) return;
+        const offset = offsets.get(obj.data.id);
+        // Placement positions the hull, so re-apply the object's own offset
+        // from its hull origin.
+        obj.set({
+          left: inToPx(placement.xIn) + offset.offsetXPx,
+          top: inToPx(placement.yIn) + offset.offsetYPx,
+        });
+        obj.setCoords();
+      });
+
+      canvas.requestRenderAll();
+      emitItems(canvas, onItemsChangeRef.current);
+      return { usedHeightIn };
+    },
+    [sheetWidthIn],
+  );
 
   const exportState = useCallback(() => {
     const canvas = fabricRef.current;

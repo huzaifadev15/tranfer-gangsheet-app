@@ -158,14 +158,17 @@ export default function GangSheetBuilderApp({ shop }) {
   );
 
   const handleAutoBuildApply = useCallback(
-    async ({ entries, neededFt }) => {
+    async ({ entries, neededFt, gapIn, marginIn }) => {
       setAutoBuilderOpen(false);
       setBusy(true);
       setErrorMsg(null);
+      setAllowOverlaps(false);
+
       // Grow the sheet if the planned layout needs more length than the
       // current selection, so nothing lands outside the printable area.
       const targetFt = Math.max(neededFt, sheetLengthFt);
       if (neededFt > sheetLengthFt) setSheetLengthFt(neededFt);
+
       await canvasApi.addItems(
         entries.map(({ item, position }) => ({
           item: { ...item, id: makeTempId("auto") },
@@ -173,6 +176,14 @@ export default function GangSheetBuilderApp({ shop }) {
         })),
         { sheetHeightIn: ftToIn(targetFt) },
       );
+
+      // The plan only packs the new batch, so it can't know about artwork
+      // already on the sheet. Repack everything together — that's what makes
+      // an applied layout overlap-free by construction.
+      const { usedHeightIn } = canvasApi.tidyCanvas({ gapIn, marginIn });
+      const finalFt = Math.max(targetFt, Math.ceil(usedHeightIn / 12) || 1);
+      if (finalFt > sheetLengthFt) setSheetLengthFt(finalFt);
+
       setBusy(false);
     },
     [canvasApi, sheetLengthFt],
@@ -242,8 +253,12 @@ export default function GangSheetBuilderApp({ shop }) {
 
   const handleTidy = useCallback(() => {
     setAllowOverlaps(false);
-    canvasApi.tidyCanvas();
-  }, [canvasApi]);
+    const { usedHeightIn } = canvasApi.tidyCanvas();
+    // Repacking can need more length than the current sheet; grow rather than
+    // squashing artwork back inside, which would reintroduce overlaps.
+    const needFt = Math.ceil(usedHeightIn / 12) || 1;
+    if (needFt > sheetLengthFt) setSheetLengthFt(needFt);
+  }, [canvasApi, sheetLengthFt]);
 
   return (
     <div className="gsb-root">

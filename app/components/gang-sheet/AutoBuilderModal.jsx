@@ -335,6 +335,8 @@ export default function AutoBuilderModal({
                   position: byId.get(entry.id),
                 })),
                 neededFt,
+                gapIn: imageMarginIn,
+                marginIn: canvasMarginIn,
               })
             }
           >
