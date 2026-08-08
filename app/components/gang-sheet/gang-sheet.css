@@ -437,8 +437,12 @@
   position: relative;
 }
 
+/* Rulers and the sheet are all absolutely placed against .gsb-grid so their
+   inline left/top coordinates line up exactly with the canvas. They must not
+   be `sticky` — sticky keeps them in normal flow, which stacks them as block
+   elements and lets the absolutely-positioned sheet paint over them. */
 .gsb-corner {
-  position: sticky;
+  position: absolute;
   top: 0;
   left: 0;
   z-index: 3;
@@ -446,7 +450,7 @@
 }
 
 .gsb-ruler-h {
-  position: sticky;
+  position: absolute;
   top: 0;
   z-index: 2;
   background: #ffffff;
@@ -454,7 +458,7 @@
 }
 
 .gsb-ruler-v {
-  position: sticky;
+  position: absolute;
   left: 0;
   z-index: 2;
   background: #ffffff;
@@ -498,6 +502,9 @@
 
 .gsb-canvas-slot {
   position: absolute;
+  /* Own stacking context, below the rulers (z-index 2/3), so neither canvas
+     content nor the selection overlay can spill over them. */
+  z-index: 1;
   background: repeating-conic-gradient(#f0f1f3 0% 25%, #ffffff 0% 50%) 0 0 / 16px 16px;
   box-shadow: 0 0 0 1px #d8dbe0;
 }

@@ -14,7 +14,7 @@ import NamesNumbersModal from "./NamesNumbersModal";
 import UploadModal from "./UploadModal";
 import IssuePanel from "./IssuePanel";
 import AutoBuilderModal from "./AutoBuilderModal";
-import { findOverlaps, findOutOfBounds } from "./overlap";
+import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
 
 const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
 
@@ -144,11 +144,17 @@ export default function GangSheetBuilderApp({ shop }) {
   const handlePlaceLibraryItem = useCallback(
     async (item) => {
       setBusy(true);
-      const offset = 0.25 + (items.length % 8) * 0.3;
-      await canvasApi.addItem(item, { xIn: offset, yIn: offset });
+      // Drop new artwork clear of whatever is already on the sheet — a fixed
+      // cascade offset just buried each new image under the previous one.
+      const lowestEdge = items.reduce(
+        (lowest, placed) => Math.max(lowest, placed.boxYIn + placed.boxHIn),
+        0,
+      );
+      const yIn = items.length === 0 ? MIN_GAP_IN : lowestEdge + MIN_GAP_IN;
+      await canvasApi.addItem(item, { xIn: MIN_GAP_IN, yIn });
       setBusy(false);
     },
-    [canvasApi, items.length],
+    [canvasApi, items],
   );
 
   const handleAutoBuildApply = useCallback(
