@@ -35,7 +35,15 @@ if (host === "localhost") {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // Pages served via Shopify's App Proxy load from the shop's own domain, so
+  // root-relative asset URLs (Vite's default) resolve against the wrong
+  // origin. Point built asset URLs at this app's real host instead. Only
+  // applied to production builds — the local dev server stays same-origin.
+  base:
+    command === "build" && process.env.SHOPIFY_APP_URL
+      ? `${process.env.SHOPIFY_APP_URL}/`
+      : "/",
   server: {
     allowedHosts: [host],
     cors: {
@@ -55,4 +63,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ["@shopify/app-bridge-react"],
   },
-});
+}));
