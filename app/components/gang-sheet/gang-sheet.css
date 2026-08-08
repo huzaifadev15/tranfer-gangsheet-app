@@ -751,6 +751,207 @@
   border: 1px solid #f0c9c5;
 }
 
+/* Auto Builder */
+.gsb-modal-xl {
+  max-width: 1040px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.gsb-modal-footer-end {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.gsb-ab-body {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  align-items: start;
+}
+
+.gsb-ab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.gsb-ab-card {
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+}
+
+.gsb-ab-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: repeating-conic-gradient(#f0f1f3 0% 25%, #ffffff 0% 50%) 0 0 / 14px 14px;
+  overflow: hidden;
+}
+
+.gsb-ab-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.gsb-ab-thumb-actions {
+  position: absolute;
+  inset: 6px 6px auto 6px;
+  display: flex;
+  justify-content: space-between;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.gsb-ab-card:hover .gsb-ab-thumb-actions,
+.gsb-ab-thumb-actions:focus-within {
+  opacity: 1;
+}
+
+.gsb-ab-name {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gsb-ab-size,
+.gsb-ab-qty {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.gsb-ab-qty {
+  border-top: 1px solid #eef0f2;
+  padding-top: 8px;
+}
+
+.gsb-input-tiny {
+  width: 54px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.gsb-select-sm {
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.gsb-icon-btn-on {
+  background: #eef5ff;
+  border-color: #1f6feb;
+}
+
+.gsb-ab-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.gsb-ab-add {
+  appearance: none;
+  border: 1.5px dashed #c6cad2;
+  border-radius: 10px;
+  background: #fafbfc;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 180px;
+}
+
+.gsb-ab-add:hover {
+  border-color: #1f6feb;
+  color: #1f6feb;
+}
+
+.gsb-ab-preview-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+}
+
+.gsb-ab-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.gsb-ab-preview-size {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gsb-ab-preview {
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafbfc;
+}
+
+.gsb-ab-preview-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #9aa0a8;
+  text-align: center;
+}
+
+.gsb-ab-preview-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 320px;
+  background: repeating-conic-gradient(#f0f1f3 0% 25%, #ffffff 0% 50%) 0 0 / 12px 12px;
+  box-shadow: 0 0 0 1px #d8dbe0;
+}
+
+.gsb-ab-preview-item {
+  position: absolute;
+  object-fit: contain;
+}
+
+.gsb-ab-margins {
+  display: flex;
+  gap: 12px;
+}
+
+.gsb-ab-margins .gsb-field {
+  flex: 1;
+}
+
+.gsb-ab-margins .gsb-input {
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .gsb-ab-body {
+    grid-template-columns: 1fr;
+  }
+
+  .gsb-ab-preview-pane {
+    position: static;
+  }
+}
+
 /* Names & Numbers modal */
 .gsb-modal-overlay {
   position: fixed;
