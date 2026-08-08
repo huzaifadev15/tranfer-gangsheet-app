@@ -35,6 +35,7 @@ export default function GangSheetBuilderApp({ shop }) {
   const canvasElRef = useRef(null);
   const viewportRef = useRef(null);
   const restoredRef = useRef(false);
+  const autoFitRef = useRef(false);
   const manualInputRef = useRef(null);
   const autoInputRef = useRef(null);
 
@@ -177,6 +178,15 @@ export default function GangSheetBuilderApp({ shop }) {
     if (!el) return;
     canvasApi.zoomToFit(el.clientWidth - 40, el.clientHeight - 40);
   }, [canvasApi]);
+
+  // Fit the whole sheet in view on first load instead of defaulting to
+  // 100%, which for a multi-foot sheet is far taller than the viewport and
+  // buries the empty-state prompt off-screen below the fold.
+  useEffect(() => {
+    if (!canvasApi.ready || autoFitRef.current) return;
+    autoFitRef.current = true;
+    requestAnimationFrame(() => handleZoomFit());
+  }, [canvasApi.ready, handleZoomFit]);
 
   const coveragePct = useMemo(
     () => coveragePercent(items, SHEET_WIDTH_IN, sheetHeightIn),
