@@ -370,8 +370,8 @@
 }
 
 /* Upload progress */
-.gsb-modal-wide {
-  max-width: 560px;
+.gsb-modal.gsb-modal-wide {
+  max-width: 640px;
 }
 
 .gsb-upload-progress {
@@ -759,10 +759,15 @@
 }
 
 /* Auto Builder */
-.gsb-modal-xl {
-  max-width: 1040px;
-  max-height: 90vh;
+/* Doubled-up class so these beat the base `.gsb-modal` max-width regardless
+   of where they sit in the file — both are single-class otherwise, and the
+   base rule is declared later. */
+.gsb-modal.gsb-modal-xl {
+  max-width: 1280px;
+  width: 96vw;
+  max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .gsb-modal-footer-end {
@@ -772,8 +777,8 @@
 
 .gsb-ab-body {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 28px;
   align-items: start;
 }
 
@@ -909,7 +914,7 @@
   border: 1px solid #e2e4e9;
   border-radius: 10px;
   padding: 10px;
-  min-height: 220px;
+  min-height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -926,7 +931,7 @@
 .gsb-ab-preview-sheet {
   position: relative;
   width: 100%;
-  max-height: 320px;
+  max-height: 420px;
   background: repeating-conic-gradient(#f0f1f3 0% 25%, #ffffff 0% 50%) 0 0 / 12px 12px;
   box-shadow: 0 0 0 1px #d8dbe0;
 }
