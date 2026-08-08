@@ -2,7 +2,7 @@
 
 client_id = "21f8809603901b2f538d19320c2bb232"
 name = "tranfer-gangsheet-app"
-application_url = "https://example.com"
+application_url = "tranfer-gangsheet-app.vercel.app"
 embedded = true
 
 [access_scopes]
