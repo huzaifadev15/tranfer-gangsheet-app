@@ -1,0 +1,247 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { inToPx, pxToIn } from "./units";
+import { packShelf } from "./binPacking";
+
+const CUSTOM_PROPS = ["data"];
+const MIN_ZOOM_PCT = 10;
+const MAX_ZOOM_PCT = 400;
+const ZOOM_STEP_PCT = 25;
+
+function makeId() {
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emitItems(canvas, cb) {
+  if (!cb) return;
+  const items = canvas
+    .getObjects()
+    .filter((obj) => obj.data?.id)
+    .map((obj) => ({
+      id: obj.data.id,
+      kind: obj.data.kind,
+      label: obj.data.label,
+      widthIn: pxToIn(obj.getScaledWidth()),
+      heightIn: pxToIn(obj.getScaledHeight()),
+      xIn: pxToIn(obj.left ?? 0),
+      yIn: pxToIn(obj.top ?? 0),
+    }));
+  cb(items);
+}
+
+// Owns the Fabric.js canvas lifecycle for the gang sheet editor. Geometry is
+// tracked in inches (see units.js) and converted to px only at the Fabric
+// boundary; canvas.setZoom() is a pure view transform on top of that.
+export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItemsChange }) {
+  const fabricRef = useRef(null);
+  const fabricLibRef = useRef(null);
+  const onItemsChangeRef = useRef(onItemsChange);
+  const [ready, setReady] = useState(false);
+  const [zoomPct, setZoomPct] = useState(100);
+  const [hasSelection, setHasSelection] = useState(false);
+
+  const baseWidthPx = inToPx(sheetWidthIn);
+  const baseHeightPx = inToPx(sheetHeightIn);
+
+  useEffect(() => {
+    onItemsChangeRef.current = onItemsChange;
+  }, [onItemsChange]);
+
+  useEffect(() => {
+    let disposed = false;
+    let canvasInstance;
+
+    (async () => {
+      const fabric = await import("fabric");
+      if (disposed || !canvasRef.current) return;
+      fabricLibRef.current = fabric;
+
+      canvasInstance = new fabric.Canvas(canvasRef.current, {
+        selection: true,
+        preserveObjectStacking: true,
+        backgroundColor: "#ffffff",
+      });
+      canvasInstance.setDimensions({ width: baseWidthPx, height: baseHeightPx });
+      fabricRef.current = canvasInstance;
+
+      const emit = () => emitItems(canvasInstance, onItemsChangeRef.current);
+      canvasInstance.on("object:added", emit);
+      canvasInstance.on("object:removed", emit);
+      canvasInstance.on("object:modified", emit);
+      canvasInstance.on("selection:created", () => setHasSelection(true));
+      canvasInstance.on("selection:updated", () => setHasSelection(true));
+      canvasInstance.on("selection:cleared", () => setHasSelection(false));
+
+      setReady(true);
+    })();
+
+    return () => {
+      disposed = true;
+      if (canvasInstance) {
+        canvasInstance.dispose();
+      }
+      fabricRef.current = null;
+      fabricLibRef.current = null;
+    };
+    // Canvas is created once; sheet size/zoom changes are applied imperatively below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const applyZoom = useCallback(
+    (pct) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+      const clamped = Math.min(MAX_ZOOM_PCT, Math.max(MIN_ZOOM_PCT, Math.round(pct)));
+      const zoom = clamped / 100;
+      canvas.setDimensions({ width: baseWidthPx * zoom, height: baseHeightPx * zoom });
+      canvas.setZoom(zoom);
+      canvas.requestRenderAll();
+      setZoomPct(clamped);
+    },
+    [baseWidthPx, baseHeightPx],
+  );
+
+  useEffect(() => {
+    if (ready) applyZoom(zoomPct);
+    // Re-apply current zoom whenever the sheet's logical size changes (e.g. length dropdown).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, baseWidthPx, baseHeightPx]);
+
+  const zoomIn = useCallback(() => applyZoom(zoomPct + ZOOM_STEP_PCT), [applyZoom, zoomPct]);
+  const zoomOut = useCallback(() => applyZoom(zoomPct - ZOOM_STEP_PCT), [applyZoom, zoomPct]);
+  const zoomReset = useCallback(() => applyZoom(100), [applyZoom]);
+  const zoomToFit = useCallback(
+    (containerWidthPx, containerHeightPx) => {
+      if (!containerWidthPx || !containerHeightPx) return;
+      const fitPct = Math.floor(
+        Math.min(containerWidthPx / baseWidthPx, containerHeightPx / baseHeightPx) * 100,
+      );
+      applyZoom(Math.max(MIN_ZOOM_PCT, fitPct));
+    },
+    [applyZoom, baseWidthPx, baseHeightPx],
+  );
+
+  const addItem = useCallback(async (item, position) => {
+    const canvas = fabricRef.current;
+    const fabric = fabricLibRef.current;
+    if (!canvas || !fabric) return null;
+
+    const id = item.id ?? makeId();
+    const widthPx = inToPx(item.widthIn);
+    const heightPx = inToPx(item.heightIn);
+    const xPx = inToPx(position?.xIn ?? 0.25);
+    const yPx = inToPx(position?.yIn ?? 0.25);
+
+    let obj;
+    if (item.kind === "svg") {
+      const { objects, options } = await fabric.loadSVGFromString(item.svgString);
+      obj = fabric.util.groupSVGElements(objects.filter(Boolean), options);
+    } else {
+      obj = await fabric.FabricImage.fromURL(item.dataUrl, { crossOrigin: "anonymous" });
+    }
+
+    const scaleX = widthPx / (obj.width || widthPx);
+    const scaleY = heightPx / (obj.height || heightPx);
+    obj.set({
+      left: xPx,
+      top: yPx,
+      scaleX,
+      scaleY,
+      data: { id, kind: item.kind, label: item.label },
+    });
+
+    canvas.add(obj);
+    canvas.setActiveObject(obj);
+    canvas.requestRenderAll();
+    return id;
+  }, []);
+
+  const addItems = useCallback(
+    async (itemsWithPositions) => {
+      for (const { item, position } of itemsWithPositions) {
+        // Sequential: Fabric image decode is async and objects must land in a stable order.
+        // eslint-disable-next-line no-await-in-loop
+        await addItem(item, position);
+      }
+      fabricRef.current?.discardActiveObject();
+      fabricRef.current?.requestRenderAll();
+    },
+    [addItem],
+  );
+
+  const removeSelected = useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    canvas.getActiveObjects().forEach((obj) => canvas.remove(obj));
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }, []);
+
+  const duplicateSelected = useCallback(async () => {
+    const canvas = fabricRef.current;
+    const active = canvas?.getActiveObject();
+    if (!canvas || !active) return;
+    const cloned = await active.clone();
+    cloned.set({
+      left: (active.left ?? 0) + 20,
+      top: (active.top ?? 0) + 20,
+      data: { ...active.data, id: makeId() },
+    });
+    canvas.add(cloned);
+    canvas.setActiveObject(cloned);
+    canvas.requestRenderAll();
+  }, []);
+
+  const tidyCanvas = useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const objects = canvas.getObjects().filter((obj) => obj.data?.id);
+    const items = objects.map((obj) => ({
+      id: obj.data.id,
+      widthIn: pxToIn(obj.getScaledWidth()),
+      heightIn: pxToIn(obj.getScaledHeight()),
+    }));
+    const { placements } = packShelf(items, sheetWidthIn);
+    const byId = new Map(placements.map((p) => [p.id, p]));
+    objects.forEach((obj) => {
+      const placement = byId.get(obj.data.id);
+      if (!placement) return;
+      obj.set({ left: inToPx(placement.xIn), top: inToPx(placement.yIn) });
+      obj.setCoords();
+    });
+    canvas.requestRenderAll();
+    emitItems(canvas, onItemsChangeRef.current);
+  }, [sheetWidthIn]);
+
+  const exportState = useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return null;
+    return canvas.toJSON(CUSTOM_PROPS);
+  }, []);
+
+  const importState = useCallback(async (json) => {
+    const canvas = fabricRef.current;
+    if (!canvas || !json) return;
+    await canvas.loadFromJSON(json);
+    canvas.requestRenderAll();
+    emitItems(canvas, onItemsChangeRef.current);
+  }, []);
+
+  return {
+    ready,
+    zoomPct,
+    hasSelection,
+    zoomIn,
+    zoomOut,
+    zoomReset,
+    zoomToFit,
+    addItem,
+    addItems,
+    removeSelected,
+    duplicateSelected,
+    tidyCanvas,
+    exportState,
+    importState,
+  };
+}
+
+export { packShelf };

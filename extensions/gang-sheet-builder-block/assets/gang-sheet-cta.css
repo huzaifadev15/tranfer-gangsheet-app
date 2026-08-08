@@ -1,0 +1,34 @@
+.gsb-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.gsb-cta__heading {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.gsb-cta__subheading {
+  margin: 0;
+  max-width: 480px;
+  color: #6b7280;
+}
+
+.gsb-cta__button {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 12px 28px;
+  border-radius: 8px;
+  background: #14213d;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.gsb-cta__button:hover {
+  background: #1f2f52;
+}

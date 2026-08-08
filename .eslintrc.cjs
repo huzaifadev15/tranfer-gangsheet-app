@@ -53,6 +53,15 @@ module.exports = {
       },
     },
 
+    // This app doesn't use the prop-types package anywhere; skip runtime
+    // prop validation for the plain-JS gang sheet editor components.
+    {
+      files: ["app/components/gang-sheet/**/*.jsx"],
+      rules: {
+        "react/prop-types": "off",
+      },
+    },
+
     // Typescript
     {
       files: ["**/*.{ts,tsx}"],
