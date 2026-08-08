@@ -21,6 +21,34 @@ function effectiveDpi(obj, widthIn) {
   return Math.round(srcPx / widthIn);
 }
 
+// Hard-constrains an object to the printable area: artwork bigger than the
+// sheet is scaled down to fit, then nudged back inside if any edge escapes.
+// Applied live during drag/scale/rotate so nothing can ever be left outside.
+function constrainToSheet(obj, maxWpx, maxHpx) {
+  let box = obj.getBoundingRect();
+
+  if (box.width > maxWpx || box.height > maxHpx) {
+    const fit = Math.min(maxWpx / box.width, maxHpx / box.height);
+    obj.scaleX *= fit;
+    obj.scaleY *= fit;
+    obj.setCoords();
+    box = obj.getBoundingRect();
+  }
+
+  let dx = 0;
+  let dy = 0;
+  if (box.left < 0) dx = -box.left;
+  else if (box.left + box.width > maxWpx) dx = maxWpx - (box.left + box.width);
+  if (box.top < 0) dy = -box.top;
+  else if (box.top + box.height > maxHpx) dy = maxHpx - (box.top + box.height);
+
+  if (dx !== 0 || dy !== 0) {
+    obj.left = (obj.left ?? 0) + dx;
+    obj.top = (obj.top ?? 0) + dy;
+    obj.setCoords();
+  }
+}
+
 function describeObject(obj) {
   const widthIn = pxToIn(obj.getScaledWidth());
   const heightIn = pxToIn(obj.getScaledHeight());
@@ -68,9 +96,17 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   const baseWidthPx = inToPx(sheetWidthIn);
   const baseHeightPx = inToPx(sheetHeightIn);
 
+  // The canvas is created once, so its event handlers read the sheet size
+  // through a ref rather than closing over a stale prop.
+  const sheetPxRef = useRef({ w: baseWidthPx, h: baseHeightPx });
+
   useEffect(() => {
     onItemsChangeRef.current = onItemsChange;
   }, [onItemsChange]);
+
+  useEffect(() => {
+    sheetPxRef.current = { w: baseWidthPx, h: baseHeightPx };
+  }, [baseWidthPx, baseHeightPx]);
 
   useEffect(() => {
     let disposed = false;
@@ -99,15 +135,25 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
         setSelection(active?.data?.id ? describeObject(active) : null);
       };
 
+      // Keep the dragged/resized object inside the sheet on every frame of the
+      // interaction, so it's impossible to release it outside the print area.
+      const confine = (e) => {
+        const target = e?.target;
+        if (!target) return;
+        const { w, h } = sheetPxRef.current;
+        constrainToSheet(target, w, h);
+        syncSelection();
+      };
+
       canvasInstance.on("object:added", emit);
       canvasInstance.on("object:removed", emit);
-      canvasInstance.on("object:modified", () => {
+      canvasInstance.on("object:modified", (e) => {
+        confine(e);
         emit();
-        syncSelection();
       });
-      canvasInstance.on("object:moving", syncSelection);
-      canvasInstance.on("object:scaling", syncSelection);
-      canvasInstance.on("object:rotating", syncSelection);
+      canvasInstance.on("object:moving", confine);
+      canvasInstance.on("object:scaling", confine);
+      canvasInstance.on("object:rotating", confine);
       canvasInstance.on("selection:created", syncSelection);
       canvasInstance.on("selection:updated", syncSelection);
       canvasInstance.on("selection:cleared", () => {
@@ -145,7 +191,18 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   );
 
   useEffect(() => {
-    if (ready) applyZoom(zoomPct);
+    if (!ready) return;
+    applyZoom(zoomPct);
+
+    // Shortening the sheet can strand artwork past the new edge, so pull
+    // everything back inside whenever the sheet is resized.
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    canvas.getObjects().forEach((obj) => {
+      if (obj.data?.id) constrainToSheet(obj, baseWidthPx, baseHeightPx);
+    });
+    canvas.requestRenderAll();
+    emitItems(canvas, onItemsChangeRef.current);
     // Re-apply current zoom whenever the sheet's logical size changes (e.g. length dropdown).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, baseWidthPx, baseHeightPx]);
@@ -201,6 +258,9 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
       },
     });
 
+    obj.setCoords();
+    constrainToSheet(obj, sheetPxRef.current.w, sheetPxRef.current.h);
+
     canvas.add(obj);
     canvas.setActiveObject(obj);
     canvas.requestRenderAll();
@@ -208,7 +268,16 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   }, []);
 
   const addItems = useCallback(
-    async (itemsWithPositions) => {
+    // `sheetHeightIn` lets a caller that is simultaneously growing the sheet
+    // (Auto Build) declare the target height up front — otherwise placement
+    // would be constrained against the pre-growth size still held in the ref.
+    async (itemsWithPositions, options = {}) => {
+      if (options.sheetHeightIn) {
+        sheetPxRef.current = {
+          ...sheetPxRef.current,
+          h: Math.max(sheetPxRef.current.h, inToPx(options.sheetHeightIn)),
+        };
+      }
       for (const { item, position } of itemsWithPositions) {
         // Sequential: Fabric image decode is async and objects must land in a stable order.
         // eslint-disable-next-line no-await-in-loop
@@ -259,6 +328,7 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
       if (!placement) return;
       obj.set({ left: inToPx(placement.xIn), top: inToPx(placement.yIn) });
       obj.setCoords();
+      constrainToSheet(obj, sheetPxRef.current.w, sheetPxRef.current.h);
     });
     canvas.requestRenderAll();
     emitItems(canvas, onItemsChangeRef.current);

@@ -164,12 +164,14 @@ export default function GangSheetBuilderApp({ shop }) {
       setErrorMsg(null);
       // Grow the sheet if the planned layout needs more length than the
       // current selection, so nothing lands outside the printable area.
+      const targetFt = Math.max(neededFt, sheetLengthFt);
       if (neededFt > sheetLengthFt) setSheetLengthFt(neededFt);
       await canvasApi.addItems(
         entries.map(({ item, position }) => ({
           item: { ...item, id: makeTempId("auto") },
           position,
         })),
+        { sheetHeightIn: ftToIn(targetFt) },
       );
       setBusy(false);
     },
