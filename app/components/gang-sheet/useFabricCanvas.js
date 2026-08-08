@@ -11,20 +11,45 @@ function makeId() {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Effective print resolution at the object's current on-sheet size — this is
+// what changes as the customer scales artwork up, and what decides whether it
+// prints sharp.
+function effectiveDpi(obj, widthIn) {
+  if (obj.data?.vector) return null;
+  const srcPx = obj.data?.widthPx;
+  if (!srcPx || !widthIn) return null;
+  return Math.round(srcPx / widthIn);
+}
+
+function describeObject(obj) {
+  const widthIn = pxToIn(obj.getScaledWidth());
+  const heightIn = pxToIn(obj.getScaledHeight());
+  const box = obj.getBoundingRect();
+
+  return {
+    id: obj.data.id,
+    kind: obj.data.kind,
+    label: obj.data.label,
+    widthIn,
+    heightIn,
+    xIn: pxToIn(obj.left ?? 0),
+    yIn: pxToIn(obj.top ?? 0),
+    // Rotation-aware hull, used for overlap/bounds checks and overlay placement.
+    boxXIn: pxToIn(box.left),
+    boxYIn: pxToIn(box.top),
+    boxWIn: pxToIn(box.width),
+    boxHIn: pxToIn(box.height),
+    dpi: effectiveDpi(obj, widthIn),
+    vector: Boolean(obj.data?.vector),
+  };
+}
+
 function emitItems(canvas, cb) {
   if (!cb) return;
   const items = canvas
     .getObjects()
     .filter((obj) => obj.data?.id)
-    .map((obj) => ({
-      id: obj.data.id,
-      kind: obj.data.kind,
-      label: obj.data.label,
-      widthIn: pxToIn(obj.getScaledWidth()),
-      heightIn: pxToIn(obj.getScaledHeight()),
-      xIn: pxToIn(obj.left ?? 0),
-      yIn: pxToIn(obj.top ?? 0),
-    }));
+    .map(describeObject);
   cb(items);
 }
 
@@ -38,6 +63,7 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   const [ready, setReady] = useState(false);
   const [zoomPct, setZoomPct] = useState(100);
   const [hasSelection, setHasSelection] = useState(false);
+  const [selection, setSelection] = useState(null);
 
   const baseWidthPx = inToPx(sheetWidthIn);
   const baseHeightPx = inToPx(sheetHeightIn);
@@ -64,12 +90,30 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
       fabricRef.current = canvasInstance;
 
       const emit = () => emitItems(canvasInstance, onItemsChangeRef.current);
+
+      // Single objects get a live measurement/action overlay; multi-selects
+      // don't (there's no one set of dimensions to report).
+      const syncSelection = () => {
+        const active = canvasInstance.getActiveObject();
+        setHasSelection(Boolean(active));
+        setSelection(active?.data?.id ? describeObject(active) : null);
+      };
+
       canvasInstance.on("object:added", emit);
       canvasInstance.on("object:removed", emit);
-      canvasInstance.on("object:modified", emit);
-      canvasInstance.on("selection:created", () => setHasSelection(true));
-      canvasInstance.on("selection:updated", () => setHasSelection(true));
-      canvasInstance.on("selection:cleared", () => setHasSelection(false));
+      canvasInstance.on("object:modified", () => {
+        emit();
+        syncSelection();
+      });
+      canvasInstance.on("object:moving", syncSelection);
+      canvasInstance.on("object:scaling", syncSelection);
+      canvasInstance.on("object:rotating", syncSelection);
+      canvasInstance.on("selection:created", syncSelection);
+      canvasInstance.on("selection:updated", syncSelection);
+      canvasInstance.on("selection:cleared", () => {
+        setHasSelection(false);
+        setSelection(null);
+      });
 
       setReady(true);
     })();
@@ -147,7 +191,14 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
       top: yPx,
       scaleX,
       scaleY,
-      data: { id, kind: item.kind, label: item.label },
+      data: {
+        id,
+        kind: item.kind,
+        label: item.label,
+        widthPx: item.widthPx,
+        heightPx: item.heightPx,
+        vector: Boolean(item.vector),
+      },
     });
 
     canvas.add(obj);
@@ -231,6 +282,7 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     ready,
     zoomPct,
     hasSelection,
+    selection,
     zoomIn,
     zoomOut,
     zoomReset,

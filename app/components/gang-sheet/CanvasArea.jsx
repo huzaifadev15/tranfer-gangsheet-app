@@ -1,4 +1,5 @@
 import { PX_PER_IN } from "./units";
+import SelectionOverlay from "./SelectionOverlay";
 
 const RULER_SIZE_PX = 24;
 
@@ -38,6 +39,9 @@ export default function CanvasArea({
   onManualBuildCta,
   onAutoBuildCta,
   onNamesNumbersCta,
+  selection,
+  onDuplicateSelected,
+  onDeleteSelected,
 }) {
   const pxPerInDisplayed = PX_PER_IN * (zoomPct / 100);
   const contentWidthPx = sheetWidthIn * pxPerInDisplayed;
@@ -87,6 +91,13 @@ export default function CanvasArea({
             style={{ left: RULER_SIZE_PX, top: RULER_SIZE_PX, width: contentWidthPx, height: contentHeightPx }}
           >
             <canvas ref={canvasElRef} />
+            <SelectionOverlay
+              selection={selection}
+              sheetWidthIn={sheetWidthIn}
+              sheetHeightIn={sheetHeightIn}
+              onDuplicate={onDuplicateSelected}
+              onDelete={onDeleteSelected}
+            />
             {isEmpty && (
               <div className="gsb-empty-state">
                 <h2>Start Building Your Gang Sheet</h2>

@@ -12,6 +12,8 @@ import RightPanel from "./RightPanel";
 import SheetSizeControl from "./SheetSizeControl";
 import NamesNumbersModal from "./NamesNumbersModal";
 import UploadModal from "./UploadModal";
+import IssuePanel from "./IssuePanel";
+import { findOverlaps, findOutOfBounds } from "./overlap";
 
 const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
 
@@ -50,6 +52,7 @@ export default function GangSheetBuilderApp({ shop }) {
   const [saveStatus, setSaveStatus] = useState(null);
   const [namesNumbersOpen, setNamesNumbersOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [allowOverlaps, setAllowOverlaps] = useState(false);
 
   const sheetHeightIn = ftToIn(sheetLengthFt);
 
@@ -207,6 +210,21 @@ export default function GangSheetBuilderApp({ shop }) {
     [items, sheetHeightIn],
   );
 
+  const overlaps = useMemo(
+    () => (allowOverlaps ? [] : findOverlaps(items)),
+    [items, allowOverlaps],
+  );
+
+  const outOfBounds = useMemo(
+    () => findOutOfBounds(items, SHEET_WIDTH_IN, sheetHeightIn),
+    [items, sheetHeightIn],
+  );
+
+  const handleTidy = useCallback(() => {
+    setAllowOverlaps(false);
+    canvasApi.tidyCanvas();
+  }, [canvasApi]);
+
   return (
     <div className="gsb-root">
       <header className="gsb-topbar">
@@ -241,7 +259,7 @@ export default function GangSheetBuilderApp({ shop }) {
           onFilesDropped={handleFilesSelected}
           onAutoBuildClick={handleAutoBuild}
           onNamesNumbersClick={() => setNamesNumbersOpen(true)}
-          onTidyCanvasClick={canvasApi.tidyCanvas}
+          onTidyCanvasClick={handleTidy}
           busy={busy}
           hasItems={items.length > 0}
           hasSelection={canvasApi.hasSelection}
@@ -267,6 +285,9 @@ export default function GangSheetBuilderApp({ shop }) {
           onManualBuildCta={() => setUploadOpen(true)}
           onAutoBuildCta={() => (library.length > 0 ? handleAutoBuild() : setUploadOpen(true))}
           onNamesNumbersCta={() => setNamesNumbersOpen(true)}
+          selection={canvasApi.selection}
+          onDuplicateSelected={canvasApi.duplicateSelected}
+          onDeleteSelected={canvasApi.removeSelected}
         />
 
         <RightPanel
@@ -278,6 +299,13 @@ export default function GangSheetBuilderApp({ shop }) {
           saveStatus={saveStatus}
         />
       </div>
+
+      <IssuePanel
+        overlaps={overlaps}
+        outOfBounds={outOfBounds}
+        onTidy={handleTidy}
+        onAllowOverlaps={() => setAllowOverlaps(true)}
+      />
 
       {errorMsg && <div className="gsb-toast gsb-toast-error">{errorMsg}</div>}
 
