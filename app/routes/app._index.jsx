@@ -1,13 +1,17 @@
 import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
-  return null;
+  return {
+    shop: session.shop,
+    accessToken: session.accessToken,
+    tokenExpires: session.expires ? session.expires.toISOString() : null,
+  };
 };
 
 export const action = async ({ request }) => {
@@ -117,6 +121,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Index() {
+  const { shop, accessToken, tokenExpires } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const isLoading =
@@ -135,6 +140,43 @@ export default function Index() {
       <s-button slot="primary-action" onClick={generateProduct}>
         Generate a product
       </s-button>
+
+      <s-section heading="Admin API access token">
+        <s-paragraph>
+          <s-text>Store: </s-text>
+          <s-text>{shop}</s-text>
+        </s-paragraph>
+        <s-box
+          padding="base"
+          borderWidth="base"
+          borderRadius="base"
+          background="subdued"
+        >
+          <pre
+            style={{
+              margin: 0,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+            }}
+          >
+            <code>{accessToken}</code>
+          </pre>
+        </s-box>
+        {tokenExpires && (
+          <s-paragraph>
+            <s-text>Expires: </s-text>
+            <s-text>{new Date(tokenExpires).toLocaleString()}</s-text>
+          </s-paragraph>
+        )}
+        <s-button
+          onClick={() => {
+            navigator.clipboard.writeText(accessToken);
+            shopify.toast.show("Access token copied");
+          }}
+        >
+          Copy token
+        </s-button>
+      </s-section>
 
       <s-section heading="Congrats on creating a new Shopify app 🎉">
         <s-paragraph>
