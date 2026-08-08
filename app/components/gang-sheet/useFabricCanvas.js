@@ -110,14 +110,15 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   const zoomOut = useCallback(() => applyZoom(zoomPct - ZOOM_STEP_PCT), [applyZoom, zoomPct]);
   const zoomReset = useCallback(() => applyZoom(100), [applyZoom]);
   const zoomToFit = useCallback(
-    (containerWidthPx, containerHeightPx) => {
-      if (!containerWidthPx || !containerHeightPx) return;
-      const fitPct = Math.floor(
-        Math.min(containerWidthPx / baseWidthPx, containerHeightPx / baseHeightPx) * 100,
-      );
+    // Sheet width is the fixed roll size, so "fit" matches it to the
+    // viewport width and lets length scroll, rather than shrinking to fit
+    // both dimensions (which left a wide gutter of unused width).
+    (containerWidthPx) => {
+      if (!containerWidthPx) return;
+      const fitPct = Math.floor((containerWidthPx / baseWidthPx) * 100);
       applyZoom(Math.max(MIN_ZOOM_PCT, fitPct));
     },
-    [applyZoom, baseWidthPx, baseHeightPx],
+    [applyZoom, baseWidthPx],
   );
 
   const addItem = useCallback(async (item, position) => {

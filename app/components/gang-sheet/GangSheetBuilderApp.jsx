@@ -176,7 +176,7 @@ export default function GangSheetBuilderApp({ shop }) {
   const handleZoomFit = useCallback(() => {
     const el = viewportRef.current;
     if (!el) return;
-    canvasApi.zoomToFit(el.clientWidth - 40, el.clientHeight - 40);
+    canvasApi.zoomToFit(el.clientWidth - 40);
   }, [canvasApi]);
 
   // Fit the whole sheet in view on first load instead of defaulting to
