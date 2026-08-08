@@ -2,6 +2,7 @@
 // a normalized { kind, dataUrl|svgString, widthIn, heightIn, label } shape
 // that useFabricCanvas can turn into a canvas object. Never imported/called
 // during SSR — only from browser event handlers.
+import { sourcePxToIn, SHEET_WIDTH_IN } from "./units";
 
 const ACCEPTED_MIME_KINDS = {
   "image/png": "image",
@@ -11,7 +12,6 @@ const ACCEPTED_MIME_KINDS = {
 };
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const DEFAULT_LONG_SIDE_IN = 4;
 
 function inferKindFromExtension(name) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -80,27 +80,55 @@ function getSvgIntrinsicSize(svgString) {
   return { widthPx: 200, heightPx: 200 };
 }
 
-// Real-world DPI of an arbitrary upload is unknowable, so new items start at
-// a sane physical size (longer side = 4in) and the customer resizes from
-// there, rather than guessing a DPI and getting it wrong.
-function normalizeToInitialSize(widthPx, heightPx, targetLongSideIn = DEFAULT_LONG_SIDE_IN) {
-  const longSidePx = Math.max(widthPx, heightPx) || 1;
-  const scale = targetLongSideIn / longSidePx;
-  return { widthIn: widthPx * scale, heightIn: heightPx * scale };
+// Artwork is sized at its true print dimensions (pixels ÷ 300dpi), then
+// scaled down only if it would overflow the sheet width.
+function normalizeToInitialSize(widthPx, heightPx) {
+  let widthIn = sourcePxToIn(widthPx || 1);
+  let heightIn = sourcePxToIn(heightPx || 1);
+
+  const maxWidthIn = SHEET_WIDTH_IN - 0.5;
+  if (widthIn > maxWidthIn) {
+    const scale = maxWidthIn / widthIn;
+    widthIn *= scale;
+    heightIn *= scale;
+  }
+
+  return { widthIn, heightIn };
 }
 
 async function loadRasterImage(file) {
   const dataUrl = await readFileAsDataUrl(file);
   const { widthPx, heightPx } = await getImagePixelSize(dataUrl);
   const { widthIn, heightIn } = normalizeToInitialSize(widthPx, heightPx);
-  return { kind: "image", dataUrl, widthIn, heightIn, label: file.name };
+  return {
+    kind: "image",
+    dataUrl,
+    thumbUrl: dataUrl,
+    widthIn,
+    heightIn,
+    widthPx,
+    heightPx,
+    label: file.name,
+  };
 }
 
 async function loadSvg(file) {
   const svgString = await readFileAsText(file);
   const { widthPx, heightPx } = getSvgIntrinsicSize(svgString);
   const { widthIn, heightIn } = normalizeToInitialSize(widthPx, heightPx);
-  return { kind: "svg", svgString, widthIn, heightIn, label: file.name };
+  // Vector art has no fixed resolution, so the tray shows it without a
+  // low-resolution warning; the thumbnail is the SVG source itself.
+  return {
+    kind: "svg",
+    svgString,
+    thumbUrl: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`,
+    widthIn,
+    heightIn,
+    widthPx,
+    heightPx,
+    vector: true,
+    label: file.name,
+  };
 }
 
 async function rasterizePdfFirstPage(file) {
@@ -127,7 +155,16 @@ async function rasterizePdfFirstPage(file) {
 
   const dataUrl = canvas.toDataURL("image/png");
   const { widthIn, heightIn } = normalizeToInitialSize(canvas.width, canvas.height);
-  return { kind: "image", dataUrl, widthIn, heightIn, label: file.name };
+  return {
+    kind: "image",
+    dataUrl,
+    thumbUrl: dataUrl,
+    widthIn,
+    heightIn,
+    widthPx: canvas.width,
+    heightPx: canvas.height,
+    label: file.name,
+  };
 }
 
 export async function ingestFile(file) {

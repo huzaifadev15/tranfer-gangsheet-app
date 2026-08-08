@@ -1,4 +1,11 @@
-export default function RightPanel({ imageCount, sheetLengthFt, coveragePct, onSave, saveStatus }) {
+export default function RightPanel({
+  imageCount,
+  sheetLengthFt,
+  material,
+  coveragePct,
+  onSave,
+  saveStatus,
+}) {
   return (
     <aside className="gsb-right-panel">
       <button type="button" className="gsb-btn gsb-btn-block" onClick={onSave}>
@@ -20,7 +27,9 @@ export default function RightPanel({ imageCount, sheetLengthFt, coveragePct, onS
           <dd>{imageCount}</dd>
         </div>
         <div className="gsb-stats-row">
-          <dt>Gang Sheet ({sheetLengthFt} ft)</dt>
+          <dt>
+            {material} Gang Sheet ({sheetLengthFt} ft)
+          </dt>
           <dd className="gsb-stats-muted">Priced at checkout</dd>
         </div>
         <div className="gsb-stats-row">

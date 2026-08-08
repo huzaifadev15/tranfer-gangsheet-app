@@ -11,6 +11,9 @@ import CanvasArea from "./CanvasArea";
 import RightPanel from "./RightPanel";
 import SheetSizeControl from "./SheetSizeControl";
 import NamesNumbersModal from "./NamesNumbersModal";
+import UploadModal from "./UploadModal";
+
+const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
 
 function makeTempId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -36,15 +39,17 @@ export default function GangSheetBuilderApp({ shop }) {
   const viewportRef = useRef(null);
   const restoredRef = useRef(false);
   const autoFitRef = useRef(false);
-  const manualInputRef = useRef(null);
-  const autoInputRef = useRef(null);
 
   const [sheetLengthFt, setSheetLengthFt] = useState(2);
+  const [material, setMaterial] = useState(MATERIALS[0]);
   const [items, setItems] = useState([]);
+  const [library, setLibrary] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
   const [namesNumbersOpen, setNamesNumbersOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const sheetHeightIn = ftToIn(sheetLengthFt);
 
@@ -101,51 +106,60 @@ export default function GangSheetBuilderApp({ shop }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [canvasApi]);
 
-  const handleAddImages = useCallback(
-    async (fileList) => {
-      setBusy(true);
-      setErrorMsg(null);
-      const files = Array.from(fileList);
-      let cascade = 0;
-      for (const file of files) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const item = await ingestFile(file);
-          const offset = 0.25 + cascade * 0.3;
-          // eslint-disable-next-line no-await-in-loop
-          await canvasApi.addItem(item, { xIn: offset, yIn: offset });
-          cascade += 1;
-        } catch (err) {
-          setErrorMsg(err.message || "Couldn't add that file.");
-        }
+  // Uploads land in the left-panel library first; placing them on the sheet
+  // is a separate, explicit step (individually, or all at once via Auto Build).
+  const handleFilesSelected = useCallback(async (fileList) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
+    setBusy(true);
+    setErrorMsg(null);
+    setUploadProgress({ done: 0, total: files.length, current: files[0].name });
+
+    const ingested = [];
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      setUploadProgress({ done: i, total: files.length, current: file.name });
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const item = await ingestFile(file);
+        ingested.push({ ...item, id: makeTempId("img") });
+      } catch (err) {
+        setErrorMsg(err.message || "Couldn't add that file.");
       }
+    }
+
+    setUploadProgress({ done: files.length, total: files.length, current: "" });
+    setLibrary((prev) => [...prev, ...ingested]);
+    setUploadProgress(null);
+    setUploadOpen(false);
+    setBusy(false);
+  }, []);
+
+  const handlePlaceLibraryItem = useCallback(
+    async (item) => {
+      setBusy(true);
+      const offset = 0.25 + (items.length % 8) * 0.3;
+      await canvasApi.addItem(item, { xIn: offset, yIn: offset });
       setBusy(false);
     },
-    [canvasApi],
+    [canvasApi, items.length],
   );
 
-  const handleAutoBuild = useCallback(
-    async (fileList) => {
-      setBusy(true);
-      setErrorMsg(null);
-      const files = Array.from(fileList);
-      const ingested = [];
-      for (const file of files) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const item = await ingestFile(file);
-          ingested.push({ ...item, id: makeTempId("auto") });
-        } catch (err) {
-          setErrorMsg(err.message || "Couldn't add that file.");
-        }
-      }
-      if (ingested.length > 0) {
-        await canvasApi.addItems(packAndPosition(ingested, SHEET_WIDTH_IN));
-      }
-      setBusy(false);
-    },
-    [canvasApi],
-  );
+  const handleAutoBuild = useCallback(async () => {
+    if (library.length === 0) return;
+    setBusy(true);
+    setErrorMsg(null);
+    const batch = library.map((item) => ({ ...item, id: makeTempId("auto") }));
+    await canvasApi.addItems(packAndPosition(batch, SHEET_WIDTH_IN));
+    setBusy(false);
+  }, [canvasApi, library]);
+
+  const handleRemoveLibraryItem = useCallback((id) => {
+    setLibrary((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const handleClearLibrary = useCallback(() => setLibrary([]), []);
 
   const handleNamesNumbersSubmit = useCallback(
     async (rosterText, style) => {
@@ -195,41 +209,37 @@ export default function GangSheetBuilderApp({ shop }) {
 
   return (
     <div className="gsb-root">
-      <input
-        ref={manualInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf"
-        multiple
-        hidden
-        onChange={(e) => {
-          if (e.target.files?.length) handleAddImages(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={autoInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf"
-        multiple
-        hidden
-        onChange={(e) => {
-          if (e.target.files?.length) handleAutoBuild(e.target.files);
-          e.target.value = "";
-        }}
-      />
-
       <header className="gsb-topbar">
         <div className="gsb-topbar-title">
           <span className="gsb-topbar-eyebrow">Gang Sheet Builder</span>
         </div>
-        <SheetSizeControl valueFt={sheetLengthFt} onChange={setSheetLengthFt} />
+        <div className="gsb-topbar-controls">
+          <div className="gsb-topbar-field">
+            <span>Size</span>
+            <SheetSizeControl valueFt={sheetLengthFt} onChange={setSheetLengthFt} />
+          </div>
+          <label className="gsb-topbar-field">
+            <span>Type</span>
+            <select
+              className="gsb-select"
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+            >
+              {MATERIALS.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </header>
 
       <div className="gsb-body">
         <LeftPanel
-          onAddImagesClick={() => manualInputRef.current?.click()}
-          onFilesDropped={handleAddImages}
-          onAutoBuildClick={() => autoInputRef.current?.click()}
+          onAddImagesClick={() => setUploadOpen(true)}
+          onFilesDropped={handleFilesSelected}
+          onAutoBuildClick={handleAutoBuild}
           onNamesNumbersClick={() => setNamesNumbersOpen(true)}
           onTidyCanvasClick={canvasApi.tidyCanvas}
           busy={busy}
@@ -237,6 +247,10 @@ export default function GangSheetBuilderApp({ shop }) {
           hasSelection={canvasApi.hasSelection}
           onDuplicateSelected={canvasApi.duplicateSelected}
           onDeleteSelected={canvasApi.removeSelected}
+          library={library}
+          onPlaceLibraryItem={handlePlaceLibraryItem}
+          onRemoveLibraryItem={handleRemoveLibraryItem}
+          onClearLibrary={handleClearLibrary}
         />
 
         <CanvasArea
@@ -250,14 +264,15 @@ export default function GangSheetBuilderApp({ shop }) {
           onZoomReset={canvasApi.zoomReset}
           onZoomFit={handleZoomFit}
           isEmpty={items.length === 0}
-          onManualBuildCta={() => manualInputRef.current?.click()}
-          onAutoBuildCta={() => autoInputRef.current?.click()}
+          onManualBuildCta={() => setUploadOpen(true)}
+          onAutoBuildCta={() => (library.length > 0 ? handleAutoBuild() : setUploadOpen(true))}
           onNamesNumbersCta={() => setNamesNumbersOpen(true)}
         />
 
         <RightPanel
           imageCount={items.length}
           sheetLengthFt={sheetLengthFt}
+          material={material}
           coveragePct={coveragePct}
           onSave={handleSave}
           saveStatus={saveStatus}
@@ -265,6 +280,14 @@ export default function GangSheetBuilderApp({ shop }) {
       </div>
 
       {errorMsg && <div className="gsb-toast gsb-toast-error">{errorMsg}</div>}
+
+      {uploadOpen && (
+        <UploadModal
+          onClose={() => setUploadOpen(false)}
+          onFiles={handleFilesSelected}
+          progress={uploadProgress}
+        />
+      )}
 
       {namesNumbersOpen && (
         <NamesNumbersModal
