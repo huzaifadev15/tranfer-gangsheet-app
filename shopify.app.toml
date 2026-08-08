@@ -2,7 +2,7 @@
 
 client_id = "21f8809603901b2f538d19320c2bb232"
 name = "tranfer-gangsheet-app"
-application_url = "tranfer-gangsheet-app.vercel.app"
+application_url = "https://tranfer-gangsheet-app.vercel.app"
 embedded = true
 
 [access_scopes]
@@ -45,7 +45,7 @@ api_version = "2026-10"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://tranfer-gangsheet-app.vercel.app/auth/callback" ]
 
 [build]
 include_config_on_deploy = true
