@@ -13,6 +13,7 @@ import SheetSizeControl from "./SheetSizeControl";
 import NamesNumbersModal from "./NamesNumbersModal";
 import UploadModal from "./UploadModal";
 import IssuePanel from "./IssuePanel";
+import AutoBuilderModal from "./AutoBuilderModal";
 import { findOverlaps, findOutOfBounds } from "./overlap";
 
 const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
@@ -52,6 +53,7 @@ export default function GangSheetBuilderApp({ shop }) {
   const [saveStatus, setSaveStatus] = useState(null);
   const [namesNumbersOpen, setNamesNumbersOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [autoBuilderOpen, setAutoBuilderOpen] = useState(false);
   const [allowOverlaps, setAllowOverlaps] = useState(false);
 
   const sheetHeightIn = ftToIn(sheetLengthFt);
@@ -149,14 +151,24 @@ export default function GangSheetBuilderApp({ shop }) {
     [canvasApi, items.length],
   );
 
-  const handleAutoBuild = useCallback(async () => {
-    if (library.length === 0) return;
-    setBusy(true);
-    setErrorMsg(null);
-    const batch = library.map((item) => ({ ...item, id: makeTempId("auto") }));
-    await canvasApi.addItems(packAndPosition(batch, SHEET_WIDTH_IN));
-    setBusy(false);
-  }, [canvasApi, library]);
+  const handleAutoBuildApply = useCallback(
+    async ({ entries, neededFt }) => {
+      setAutoBuilderOpen(false);
+      setBusy(true);
+      setErrorMsg(null);
+      // Grow the sheet if the planned layout needs more length than the
+      // current selection, so nothing lands outside the printable area.
+      if (neededFt > sheetLengthFt) setSheetLengthFt(neededFt);
+      await canvasApi.addItems(
+        entries.map(({ item, position }) => ({
+          item: { ...item, id: makeTempId("auto") },
+          position,
+        })),
+      );
+      setBusy(false);
+    },
+    [canvasApi, sheetLengthFt],
+  );
 
   const handleRemoveLibraryItem = useCallback((id) => {
     setLibrary((prev) => prev.filter((item) => item.id !== id));
@@ -257,7 +269,7 @@ export default function GangSheetBuilderApp({ shop }) {
         <LeftPanel
           onAddImagesClick={() => setUploadOpen(true)}
           onFilesDropped={handleFilesSelected}
-          onAutoBuildClick={handleAutoBuild}
+          onAutoBuildClick={() => setAutoBuilderOpen(true)}
           onNamesNumbersClick={() => setNamesNumbersOpen(true)}
           onTidyCanvasClick={handleTidy}
           busy={busy}
@@ -283,7 +295,9 @@ export default function GangSheetBuilderApp({ shop }) {
           onZoomFit={handleZoomFit}
           isEmpty={items.length === 0}
           onManualBuildCta={() => setUploadOpen(true)}
-          onAutoBuildCta={() => (library.length > 0 ? handleAutoBuild() : setUploadOpen(true))}
+          onAutoBuildCta={() =>
+            library.length > 0 ? setAutoBuilderOpen(true) : setUploadOpen(true)
+          }
           onNamesNumbersCta={() => setNamesNumbersOpen(true)}
           selection={canvasApi.selection}
           onDuplicateSelected={canvasApi.duplicateSelected}
@@ -314,6 +328,19 @@ export default function GangSheetBuilderApp({ shop }) {
           onClose={() => setUploadOpen(false)}
           onFiles={handleFilesSelected}
           progress={uploadProgress}
+        />
+      )}
+
+      {autoBuilderOpen && (
+        <AutoBuilderModal
+          library={library}
+          sheetWidthIn={SHEET_WIDTH_IN}
+          onCancel={() => setAutoBuilderOpen(false)}
+          onApply={handleAutoBuildApply}
+          onAddMore={() => {
+            setAutoBuilderOpen(false);
+            setUploadOpen(true);
+          }}
         />
       )}
 
