@@ -7,11 +7,17 @@ const DEFAULT_GAP_IN = 0.25;
 // `gapIn` is the space between neighbouring designs; `marginIn` is the inset
 // kept clear at the sheet edges. They're separate because trimming tolerance
 // at the roll edge is a different constraint from spacing between designs.
+//
+// `keepOrder` places items in the order given instead of tallest-first. It
+// costs sheet length, but keeps a roster readable — Names & Numbers uses it
+// so a printed sheet still reads top-to-bottom in the order it was entered.
 export function packShelf(items, sheetWidthIn, options = {}) {
   const gap = options.gapIn ?? DEFAULT_GAP_IN;
   const margin = options.marginIn ?? gap;
   const usableWidth = Math.max(0.1, sheetWidthIn - margin * 2);
-  const sorted = [...items].sort((a, b) => b.heightIn - a.heightIn);
+  const sorted = options.keepOrder
+    ? [...items]
+    : [...items].sort((a, b) => b.heightIn - a.heightIn);
 
   const placements = [];
   let cursorX = margin;

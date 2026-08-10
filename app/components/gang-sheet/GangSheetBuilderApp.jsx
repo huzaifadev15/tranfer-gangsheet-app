@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./gang-sheet.css";
 import { useFabricCanvas } from "./useFabricCanvas";
-import { packShelf, coveragePercent } from "./binPacking";
+import { coveragePercent } from "./binPacking";
 import { ingestFile } from "./fileIngestion";
-import { renderTextTile } from "./textTiles";
 import { saveDraft, restoreDraft } from "./persistence";
 import { ftToIn, SHEET_WIDTH_IN } from "./units";
 import LeftPanel from "./LeftPanel";
@@ -20,21 +19,6 @@ const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
 
 function makeTempId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function packAndPosition(rawItems, sheetWidthIn) {
-  const { placements } = packShelf(
-    rawItems.map((item) => ({ id: item.id, widthIn: item.widthIn, heightIn: item.heightIn })),
-    sheetWidthIn,
-  );
-  const byId = new Map(placements.map((p) => [p.id, p]));
-  return rawItems.map((item) => ({
-    item,
-    position: {
-      xIn: byId.get(item.id)?.xIn ?? 0.25,
-      yIn: byId.get(item.id)?.yIn ?? 0.25,
-    },
-  }));
 }
 
 export default function GangSheetBuilderApp({ shop }) {
@@ -196,23 +180,26 @@ export default function GangSheetBuilderApp({ shop }) {
   const handleClearLibrary = useCallback(() => setLibrary([]), []);
 
   const handleNamesNumbersSubmit = useCallback(
-    async (rosterText, style) => {
-      setBusy(true);
-      const lines = rosterText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const tiles = lines.map((line) => {
-        const { dataUrl, widthIn, heightIn } = renderTextTile(line, style);
-        return { kind: "text", dataUrl, widthIn, heightIn, label: line, id: makeTempId("text") };
-      });
-      if (tiles.length > 0) {
-        await canvasApi.addItems(packAndPosition(tiles, SHEET_WIDTH_IN));
-      }
-      setBusy(false);
+    async ({ entries, neededFt, gapIn, marginIn }) => {
       setNamesNumbersOpen(false);
+      setBusy(true);
+      setAllowOverlaps(false);
+
+      // Same contract as Auto Build: the modal packs only its own tiles, so
+      // grow the sheet to fit them and repack everything afterwards rather
+      // than dropping the roster on top of artwork already placed.
+      const targetFt = Math.max(neededFt, sheetLengthFt);
+      if (neededFt > sheetLengthFt) setSheetLengthFt(neededFt);
+
+      await canvasApi.addItems(entries, { sheetHeightIn: ftToIn(targetFt) });
+
+      const { usedHeightIn } = canvasApi.tidyCanvas({ gapIn, marginIn });
+      const finalFt = Math.max(targetFt, Math.ceil(usedHeightIn / 12) || 1);
+      if (finalFt > sheetLengthFt) setSheetLengthFt(finalFt);
+
+      setBusy(false);
     },
-    [canvasApi],
+    [canvasApi, sheetLengthFt],
   );
 
   const handleSave = useCallback(() => {
@@ -369,6 +356,7 @@ export default function GangSheetBuilderApp({ shop }) {
 
       {namesNumbersOpen && (
         <NamesNumbersModal
+          sheetWidthIn={SHEET_WIDTH_IN}
           onClose={() => setNamesNumbersOpen(false)}
           onSubmit={handleNamesNumbersSubmit}
           busy={busy}
