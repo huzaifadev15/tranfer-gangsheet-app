@@ -2,7 +2,11 @@ import { useRef } from "react";
 import { PX_PER_IN } from "./units";
 import SelectionOverlay from "./SelectionOverlay";
 
-const RULER_SIZE_PX = 28;
+// The vertical ruler needs more room than the horizontal one: on a 40ft sheet
+// its labels reach four characters ('480"'), and they're laid out across the
+// ruler's width rather than along its length.
+const RULER_H_PX = 28;
+const RULER_V_PX = 46;
 const MIN_LABEL_GAP_PX = 56;
 const LABEL_STEPS_IN = [1, 2, 5, 10, 20, 50, 100];
 
@@ -159,16 +163,16 @@ export default function CanvasArea({
         <div
           className="gsb-grid"
           style={{
-            width: RULER_SIZE_PX + contentWidthPx,
-            height: RULER_SIZE_PX + contentHeightPx,
+            width: RULER_V_PX + contentWidthPx,
+            height: RULER_H_PX + contentHeightPx,
           }}
         >
-          <div className="gsb-corner" style={{ width: RULER_SIZE_PX, height: RULER_SIZE_PX }}>
+          <div className="gsb-corner" style={{ width: RULER_V_PX, height: RULER_H_PX }}>
             IN
           </div>
           <div
             className="gsb-ruler-h"
-            style={{ left: RULER_SIZE_PX, height: RULER_SIZE_PX, width: contentWidthPx }}
+            style={{ left: RULER_V_PX, height: RULER_H_PX, width: contentWidthPx }}
           >
             <Ticks
               lengthIn={sheetWidthIn}
@@ -178,7 +182,7 @@ export default function CanvasArea({
           </div>
           <div
             className="gsb-ruler-v"
-            style={{ top: RULER_SIZE_PX, width: RULER_SIZE_PX, height: contentHeightPx }}
+            style={{ top: RULER_H_PX, width: RULER_V_PX, height: contentHeightPx }}
           >
             <Ticks
               lengthIn={sheetHeightIn}
@@ -189,8 +193,8 @@ export default function CanvasArea({
           <div
             className="gsb-canvas-slot"
             style={{
-              left: RULER_SIZE_PX,
-              top: RULER_SIZE_PX,
+              left: RULER_V_PX,
+              top: RULER_H_PX,
               width: contentWidthPx,
               height: contentHeightPx,
             }}
