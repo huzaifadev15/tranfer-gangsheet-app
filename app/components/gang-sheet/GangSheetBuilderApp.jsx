@@ -13,10 +13,22 @@ import NamesNumbersModal from "./NamesNumbersModal";
 import UploadModal from "./UploadModal";
 import IssuePanel from "./IssuePanel";
 import ImageOptionsPanel from "./ImageOptionsPanel";
+import SettingsPopover from "./SettingsPopover";
+import ConfirmModal from "./ConfirmModal";
+import RecolorModal from "./RecolorModal";
+import { removeBackground } from "./imageOps";
 import AutoBuilderModal from "./AutoBuilderModal";
 import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
 
-const MATERIALS = ["DTF", "UV DTF", "Sublimation"];
+const MATERIALS = ["DTF", "UV DTF", "Glitter", "Glow in the Dark", "Gold Foil", "Silver Foil"];
+
+const DEFAULT_SETTINGS = {
+  canvasMarginIn: 1,
+  imageMarginIn: 1,
+  showImageBorders: true,
+  imageSnapping: false,
+  allowOverlaps: false,
+};
 
 function makeTempId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -39,8 +51,19 @@ export default function GangSheetBuilderApp({ shop }) {
   const [namesNumbersOpen, setNamesNumbersOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [autoBuilderOpen, setAutoBuilderOpen] = useState(false);
-  const [allowOverlaps, setAllowOverlaps] = useState(false);
   const [optionsDismissed, setOptionsDismissed] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toolMode, setToolMode] = useState("select");
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [recolorTarget, setRecolorTarget] = useState(null);
+  const [busyOp, setBusyOp] = useState(null);
+
+  const allowOverlaps = settings.allowOverlaps;
+  const setAllowOverlaps = useCallback(
+    (value) => setSettings((prev) => ({ ...prev, allowOverlaps: value })),
+    [],
+  );
 
   const sheetHeightIn = ftToIn(sheetLengthFt);
 
@@ -53,7 +76,13 @@ export default function GangSheetBuilderApp({ shop }) {
     sheetWidthIn: SHEET_WIDTH_IN,
     sheetHeightIn,
     onItemsChange: handleItemsChange,
+    showImageBorders: settings.showImageBorders,
+    imageSnapping: settings.imageSnapping,
   });
+
+  useEffect(() => {
+    if (canvasApi.ready) canvasApi.setToolMode(toolMode);
+  }, [canvasApi, toolMode]);
 
   // Restore a locally-saved draft once the canvas is ready.
   useEffect(() => {
@@ -276,14 +305,56 @@ export default function GangSheetBuilderApp({ shop }) {
     return needFt > sheetLengthFt ? Math.min(20, needFt) : null;
   }, [items, sheetLengthFt]);
 
+  const handleRemoveBg = useCallback(() => {
+    const element = canvasApi.getSelectionElement();
+    if (!element) return;
+    setBusyOp("removeBg");
+    // Yield a frame so the button's "Working…" label paints before the
+    // synchronous pixel pass blocks the main thread.
+    requestAnimationFrame(async () => {
+      const result = removeBackground(element);
+      if (!result) {
+        setErrorMsg("Couldn't find a flat background to remove on this image.");
+      } else {
+        await canvasApi.applyProcessedImage(result);
+      }
+      setBusyOp(null);
+    });
+  }, [canvasApi]);
+
+  const handleOpenRecolor = useCallback(() => {
+    const element = canvasApi.getSelectionElement();
+    if (!element) {
+      setErrorMsg("Recoloring only works on raster artwork (PNG, JPG, PDF).");
+      return;
+    }
+    setRecolorTarget({ element, label: canvasApi.selection?.label ?? "Artwork" });
+  }, [canvasApi]);
+
+  const handleApplyRecolor = useCallback(
+    async (result) => {
+      setRecolorTarget(null);
+      if (result) await canvasApi.applyProcessedImage(result);
+    },
+    [canvasApi],
+  );
+
+  const handleClearCanvas = useCallback(() => {
+    setClearConfirmOpen(false);
+    canvasApi.clearAll();
+  }, [canvasApi]);
+
   const handleTidy = useCallback(() => {
     setAllowOverlaps(false);
-    const { usedHeightIn } = canvasApi.tidyCanvas();
+    const { usedHeightIn } = canvasApi.tidyCanvas({
+      gapIn: settings.imageMarginIn,
+      marginIn: settings.canvasMarginIn,
+    });
     // Repacking can need more length than the current sheet; grow rather than
     // squashing artwork back inside, which would reintroduce overlaps.
     const needFt = Math.ceil(usedHeightIn / 12) || 1;
     if (needFt > sheetLengthFt) setSheetLengthFt(needFt);
-  }, [canvasApi, sheetLengthFt]);
+  }, [canvasApi, sheetLengthFt, settings, setAllowOverlaps]);
 
   return (
     <div className="gsb-root">
@@ -310,6 +381,54 @@ export default function GangSheetBuilderApp({ shop }) {
               ))}
             </select>
           </label>
+
+          <div className="gsb-tool-cluster">
+            <button
+              type="button"
+              className={`gsb-mode-btn${toolMode === "select" ? " gsb-mode-on" : ""}`}
+              onClick={() => setToolMode("select")}
+              aria-pressed={toolMode === "select"}
+              title="Select tool"
+            >
+              ⬉
+            </button>
+            <button
+              type="button"
+              className={`gsb-mode-btn${toolMode === "pan" ? " gsb-mode-on" : ""}`}
+              onClick={() => setToolMode("pan")}
+              aria-pressed={toolMode === "pan"}
+              title="Pan tool"
+            >
+              ✋
+            </button>
+            <div className="gsb-settings-anchor">
+              <button
+                type="button"
+                className={`gsb-mode-btn${settingsOpen ? " gsb-mode-on" : ""}`}
+                onClick={() => setSettingsOpen((open) => !open)}
+                aria-expanded={settingsOpen}
+                title="Canvas settings"
+              >
+                ⚙
+              </button>
+              {settingsOpen && (
+                <SettingsPopover
+                  settings={settings}
+                  onChange={setSettings}
+                  onClose={() => setSettingsOpen(false)}
+                />
+              )}
+            </div>
+            <button
+              type="button"
+              className="gsb-mode-btn"
+              onClick={() => setClearConfirmOpen(true)}
+              disabled={items.length === 0}
+              title="Clear canvas"
+            >
+              🧹
+            </button>
+          </div>
         </div>
       </header>
 
@@ -343,7 +462,11 @@ export default function GangSheetBuilderApp({ shop }) {
             onFlip={canvasApi.flipSelected}
             onCenter={canvasApi.centerSelected}
             onReset={canvasApi.resetSelected}
+            onRemoveBg={handleRemoveBg}
+            onRecolor={handleOpenRecolor}
             trimAvailable={canvasApi.selection.kind === "image"}
+            pixelOpsAvailable={canvasApi.selection.kind === "image"}
+            busyOp={busyOp}
           />
         )}
 
@@ -370,6 +493,7 @@ export default function GangSheetBuilderApp({ shop }) {
           onRedo={canvasApi.redo}
           canUndo={canvasApi.canUndo}
           canRedo={canvasApi.canRedo}
+          toolMode={toolMode}
         />
 
         <RightPanel
@@ -396,6 +520,26 @@ export default function GangSheetBuilderApp({ shop }) {
       />
 
       {errorMsg && <div className="gsb-toast gsb-toast-error">{errorMsg}</div>}
+
+      {clearConfirmOpen && (
+        <ConfirmModal
+          title="Clear Canvas?"
+          body="This will remove all images from the canvas. Your uploaded images will remain in the gallery."
+          confirmLabel="Clear Canvas"
+          destructive
+          onConfirm={handleClearCanvas}
+          onCancel={() => setClearConfirmOpen(false)}
+        />
+      )}
+
+      {recolorTarget && (
+        <RecolorModal
+          element={recolorTarget.element}
+          label={recolorTarget.label}
+          onApply={handleApplyRecolor}
+          onCancel={() => setRecolorTarget(null)}
+        />
+      )}
 
       {uploadOpen && (
         <UploadModal

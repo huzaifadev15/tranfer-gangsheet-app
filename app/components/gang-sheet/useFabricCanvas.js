@@ -8,6 +8,7 @@ const MAX_ZOOM_PCT = 400;
 const ZOOM_STEP_PCT = 25;
 const MAX_HISTORY = 50;
 const MIN_SIZE_IN = 0.25;
+const SNAP_STEP_IN = 0.25;
 
 function makeId() {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -90,7 +91,14 @@ function emitItems(canvas, cb) {
 // Owns the Fabric.js canvas lifecycle for the gang sheet editor. Geometry is
 // tracked in inches (see units.js) and converted to px only at the Fabric
 // boundary; canvas.setZoom() is a pure view transform on top of that.
-export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItemsChange }) {
+export function useFabricCanvas({
+  canvasRef,
+  sheetWidthIn,
+  sheetHeightIn,
+  onItemsChange,
+  showImageBorders = false,
+  imageSnapping = false,
+}) {
   const fabricRef = useRef(null);
   const fabricLibRef = useRef(null);
   const onItemsChangeRef = useRef(onItemsChange);
@@ -104,6 +112,18 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   // snapshot is the only representation guaranteed to round-trip all of them.
   const historyRef = useRef({ past: [], future: [], present: null, lock: false });
   const commitRef = useRef(() => {});
+
+  // Read inside canvas event handlers, which are bound once and would
+  // otherwise close over the first render's values.
+  const bordersRef = useRef(showImageBorders);
+  const snappingRef = useRef(imageSnapping);
+  useEffect(() => {
+    bordersRef.current = showImageBorders;
+    fabricRef.current?.requestRenderAll();
+  }, [showImageBorders]);
+  useEffect(() => {
+    snappingRef.current = imageSnapping;
+  }, [imageSnapping]);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
@@ -170,10 +190,37 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
       const confine = (e) => {
         const target = e?.target;
         if (!target) return;
+        if (snappingRef.current) {
+          // Quarter-inch grid — fine enough to nudge freely, coarse enough
+          // that neighbouring designs line up on a shared edge.
+          const step = inToPx(SNAP_STEP_IN);
+          target.set({
+            left: Math.round((target.left ?? 0) / step) * step,
+            top: Math.round((target.top ?? 0) / step) * step,
+          });
+        }
         const { w, h } = sheetPxRef.current;
         constrainToSheet(target, w, h);
         syncSelection();
       };
+
+      // Ninja draws a hairline box around every placed design so gaps are
+      // visible against transparent artwork. Painted after the scene rather
+      // than as an object stroke, which would alter the artwork itself.
+      canvasInstance.on("after:render", () => {
+        if (!bordersRef.current) return;
+        const ctx = canvasInstance.getContext();
+        const zoom = canvasInstance.getZoom();
+        ctx.save();
+        ctx.strokeStyle = "#e07a1f";
+        ctx.lineWidth = 1;
+        canvasInstance.getObjects().forEach((obj) => {
+          if (!obj.data?.id) return;
+          const box = obj.getBoundingRect();
+          ctx.strokeRect(box.left * zoom, box.top * zoom, box.width * zoom, box.height * zoom);
+        });
+        ctx.restore();
+      });
 
       canvasInstance.on("object:added", () => {
         emit();
@@ -587,6 +634,74 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     return { trimmed: true };
   }, [refresh]);
 
+  // The decoded bitmap behind the selected object, for the pixel operations
+  // in imageOps.js (Remove BG, Replace Colors).
+  const getSelectionElement = useCallback(() => {
+    const active = fabricRef.current?.getActiveObject();
+    if (!active || active.data?.vector) return null;
+    return active.getElement?.() ?? null;
+  }, []);
+
+  // Swaps in a processed bitmap while holding the object's *printed* size
+  // fixed — the customer edited the artwork, not how big it prints.
+  const applyProcessedImage = useCallback(
+    async ({ dataUrl, widthPx, heightPx }) => {
+      const canvas = fabricRef.current;
+      const fabric = fabricLibRef.current;
+      const active = canvas?.getActiveObject();
+      if (!canvas || !fabric || !active) return false;
+
+      const printedWidthPx = active.getScaledWidth();
+      const printedHeightPx = active.getScaledHeight();
+      const element = await fabric.util.loadImage(dataUrl, { crossOrigin: "anonymous" });
+
+      active.setElement(element);
+      active.set({
+        cropX: 0,
+        cropY: 0,
+        width: widthPx,
+        height: heightPx,
+        scaleX: printedWidthPx / widthPx,
+        scaleY: printedHeightPx / heightPx,
+        data: { ...active.data, widthPx, heightPx },
+      });
+      active.setCoords();
+      canvas.requestRenderAll();
+      refresh();
+      commitRef.current();
+      return true;
+    },
+    [refresh],
+  );
+
+  const clearAll = useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    historyRef.current.lock = true;
+    canvas.getObjects().forEach((obj) => canvas.remove(obj));
+    canvas.discardActiveObject();
+    historyRef.current.lock = false;
+    canvas.requestRenderAll();
+    refresh();
+    commitRef.current();
+  }, [refresh]);
+
+  // The pan tool has to take objects out of the hit-test path, otherwise a
+  // drag that starts on artwork moves the artwork instead of the view.
+  const setToolMode = useCallback((mode) => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const interactive = mode !== "pan";
+    canvas.selection = interactive;
+    canvas.defaultCursor = interactive ? "default" : "grab";
+    canvas.getObjects().forEach((obj) => {
+      obj.selectable = interactive;
+      obj.evented = interactive;
+    });
+    if (!interactive) canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }, []);
+
   // Repacks everything currently on the sheet into a guaranteed
   // non-overlapping layout. Returns the length the result consumes so the
   // caller can grow the sheet if it no longer fits.
@@ -680,6 +795,10 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     centerSelected,
     resetSelected,
     autoTrimSelected,
+    getSelectionElement,
+    applyProcessedImage,
+    clearAll,
+    setToolMode,
     undo,
     redo,
     tidyCanvas,

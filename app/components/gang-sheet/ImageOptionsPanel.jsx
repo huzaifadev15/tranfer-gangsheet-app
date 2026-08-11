@@ -38,7 +38,11 @@ export default function ImageOptionsPanel({
   onFlip,
   onCenter,
   onReset,
+  onRemoveBg,
+  onRecolor,
   trimAvailable,
+  pixelOpsAvailable,
+  busyOp,
 }) {
   const [lockAspect, setLockAspect] = useState(true);
   const [draft, setDraft] = useState({ width: "", height: "" });
@@ -193,6 +197,42 @@ export default function ImageOptionsPanel({
         </button>
       </div>
 
+      <div className="gsb-options-group">Edit</div>
+      <div className="gsb-options-grid gsb-options-grid-3">
+        <button
+          type="button"
+          className="gsb-tool-btn"
+          onClick={onRemoveBg}
+          disabled={!pixelOpsAvailable || busyOp != null}
+          title={
+            pixelOpsAvailable
+              ? "Knock out a flat background colour"
+              : "Only available for raster artwork"
+          }
+        >
+          <span aria-hidden="true">◍</span>
+          {busyOp === "removeBg" ? "Working…" : "Remove BG"}
+        </button>
+        <button
+          type="button"
+          className="gsb-tool-btn"
+          onClick={onRecolor}
+          disabled={!pixelOpsAvailable || busyOp != null}
+          title={
+            pixelOpsAvailable
+              ? "Swap one colour for another"
+              : "Only available for raster artwork"
+          }
+        >
+          <span aria-hidden="true">◑</span>
+          Recolor
+        </button>
+        <button type="button" className="gsb-tool-btn" onClick={onReset}>
+          <span aria-hidden="true">↺</span>
+          Reset
+        </button>
+      </div>
+
       <div className="gsb-options-group">Transform</div>
       <div className="gsb-options-grid gsb-options-grid-3">
         <button type="button" className="gsb-tool-btn" onClick={() => onRotate(90)}>
@@ -210,10 +250,6 @@ export default function ImageOptionsPanel({
         <button type="button" className="gsb-tool-btn" onClick={onCenter}>
           <span aria-hidden="true">⊹</span>
           Center
-        </button>
-        <button type="button" className="gsb-tool-btn" onClick={onReset}>
-          <span aria-hidden="true">↺</span>
-          Reset
         </button>
       </div>
     </div>

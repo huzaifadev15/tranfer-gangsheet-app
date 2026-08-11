@@ -1,4 +1,5 @@
-const PRESETS_FT = [2, 3, 5, 10];
+const PRESETS_FT = [2, 5, 7, 10, 15, 20, 30, 40];
+const MAX_FT = 40;
 
 export default function SheetSizeControl({ valueFt, onChange }) {
   const isPreset = PRESETS_FT.includes(valueFt);
@@ -10,7 +11,7 @@ export default function SheetSizeControl({ valueFt, onChange }) {
         value={isPreset ? String(valueFt) : "custom"}
         onChange={(e) => {
           if (e.target.value === "custom") {
-            onChange(Math.max(1, Math.min(20, valueFt || 6)));
+            onChange(Math.max(1, Math.min(MAX_FT, valueFt || 6)));
           } else {
             onChange(Number(e.target.value));
           }
@@ -29,13 +30,13 @@ export default function SheetSizeControl({ valueFt, onChange }) {
           className="gsb-input gsb-input-narrow"
           type="number"
           min={1}
-          max={20}
+          max={MAX_FT}
           step={0.5}
           value={valueFt}
           onChange={(e) => {
             const next = Number(e.target.value);
             if (!Number.isNaN(next)) {
-              onChange(Math.max(1, Math.min(20, next)));
+              onChange(Math.max(1, Math.min(MAX_FT, next)));
             }
           }}
           aria-label="Custom sheet length in feet"
