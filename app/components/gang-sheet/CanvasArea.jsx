@@ -1,24 +1,42 @@
+import { useRef } from "react";
 import { PX_PER_IN } from "./units";
 import SelectionOverlay from "./SelectionOverlay";
 
-const RULER_SIZE_PX = 24;
+const RULER_SIZE_PX = 28;
+const MIN_LABEL_GAP_PX = 56;
+const LABEL_STEPS_IN = [1, 2, 5, 10, 20, 50, 100];
+
+// A 40ft sheet is 480 inches — drawing a labelled tick per inch would be an
+// unreadable smear at fit-to-width zoom. Pick the coarsest label interval that
+// still fills the ruler, and hang minor ticks off it.
+function rulerSteps(pxPerInDisplayed) {
+  const labelStepIn =
+    LABEL_STEPS_IN.find((step) => step * pxPerInDisplayed >= MIN_LABEL_GAP_PX) ??
+    LABEL_STEPS_IN[LABEL_STEPS_IN.length - 1];
+  const minorStepIn = labelStepIn / 5;
+  const showMinor = minorStepIn * pxPerInDisplayed >= 6;
+  return { labelStepIn, minorStepIn, showMinor };
+}
 
 function Ticks({ lengthIn, pxPerInDisplayed, orientation }) {
+  const { labelStepIn, minorStepIn, showMinor } = rulerSteps(pxPerInDisplayed);
+  const step = showMinor ? minorStepIn : labelStepIn;
   const ticks = [];
-  for (let i = 0; i <= Math.ceil(lengthIn); i += 1) {
-    const pos = i * pxPerInDisplayed;
-    const major = i % 5 === 0;
+
+  for (let value = 0; value <= lengthIn + 1e-6; value += step) {
+    const inches = Math.round(value * 1000) / 1000;
+    const major = Math.abs(inches % labelStepIn) < 1e-6;
     ticks.push(
       <span
-        key={i}
+        key={inches}
         className={`gsb-tick${major ? " gsb-tick-major" : ""}`}
         style={
           orientation === "horizontal"
-            ? { left: pos }
-            : { top: pos }
+            ? { left: inches * pxPerInDisplayed }
+            : { top: inches * pxPerInDisplayed }
         }
       >
-        {major ? <em>{i}&quot;</em> : null}
+        {major ? <em>{inches}&quot;</em> : null}
       </span>,
     );
   }
@@ -46,10 +64,45 @@ export default function CanvasArea({
   onRedo,
   canUndo,
   canRedo,
+  toolMode = "select",
 }) {
+  const panRef = useRef(null);
   const pxPerInDisplayed = PX_PER_IN * (zoomPct / 100);
   const contentWidthPx = sheetWidthIn * pxPerInDisplayed;
   const contentHeightPx = sheetHeightIn * pxPerInDisplayed;
+  const panning = toolMode === "pan";
+
+  // The sheet lives inside a scrolling viewport, so "pan" means scroll the
+  // viewport rather than translate Fabric's viewportTransform — that keeps the
+  // rulers, which are plain DOM, locked to the artwork.
+  const onPointerDown = (e) => {
+    if (!panning) return;
+    const el = containerRef.current;
+    if (!el) return;
+    panRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      left: el.scrollLeft,
+      top: el.scrollTop,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    const start = panRef.current;
+    const el = containerRef.current;
+    if (!start || !el) return;
+    el.scrollLeft = start.left - (e.clientX - start.x);
+    el.scrollTop = start.top - (e.clientY - start.y);
+  };
+
+  const endPan = (e) => {
+    if (!panRef.current) return;
+    panRef.current = null;
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
 
   return (
     <div className="gsb-canvas-area">
@@ -82,15 +135,27 @@ export default function CanvasArea({
         <button type="button" className="gsb-icon-btn" onClick={onZoomIn} aria-label="Zoom in">
           +
         </button>
-        <button type="button" className="gsb-btn gsb-btn-small" onClick={onZoomFit}>
-          Fit
+        <button
+          type="button"
+          className="gsb-btn gsb-btn-small"
+          onClick={onZoomFit}
+          title="Fit sheet width"
+        >
+          ↔ Fit
         </button>
         <button type="button" className="gsb-btn gsb-btn-small" onClick={onZoomReset}>
           100%
         </button>
       </div>
 
-      <div className="gsb-viewport" ref={containerRef}>
+      <div
+        className={`gsb-viewport${panning ? " gsb-viewport-panning" : ""}`}
+        ref={containerRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
+      >
         <div
           className="gsb-grid"
           style={{
@@ -98,31 +163,48 @@ export default function CanvasArea({
             height: RULER_SIZE_PX + contentHeightPx,
           }}
         >
-          <div className="gsb-corner" style={{ width: RULER_SIZE_PX, height: RULER_SIZE_PX }} />
+          <div className="gsb-corner" style={{ width: RULER_SIZE_PX, height: RULER_SIZE_PX }}>
+            IN
+          </div>
           <div
             className="gsb-ruler-h"
             style={{ left: RULER_SIZE_PX, height: RULER_SIZE_PX, width: contentWidthPx }}
           >
-            <Ticks lengthIn={sheetWidthIn} pxPerInDisplayed={pxPerInDisplayed} orientation="horizontal" />
+            <Ticks
+              lengthIn={sheetWidthIn}
+              pxPerInDisplayed={pxPerInDisplayed}
+              orientation="horizontal"
+            />
           </div>
           <div
             className="gsb-ruler-v"
             style={{ top: RULER_SIZE_PX, width: RULER_SIZE_PX, height: contentHeightPx }}
           >
-            <Ticks lengthIn={sheetHeightIn} pxPerInDisplayed={pxPerInDisplayed} orientation="vertical" />
+            <Ticks
+              lengthIn={sheetHeightIn}
+              pxPerInDisplayed={pxPerInDisplayed}
+              orientation="vertical"
+            />
           </div>
           <div
             className="gsb-canvas-slot"
-            style={{ left: RULER_SIZE_PX, top: RULER_SIZE_PX, width: contentWidthPx, height: contentHeightPx }}
+            style={{
+              left: RULER_SIZE_PX,
+              top: RULER_SIZE_PX,
+              width: contentWidthPx,
+              height: contentHeightPx,
+            }}
           >
             <canvas ref={canvasElRef} />
-            <SelectionOverlay
-              selection={selection}
-              sheetWidthIn={sheetWidthIn}
-              sheetHeightIn={sheetHeightIn}
-              onDuplicate={onDuplicateSelected}
-              onDelete={onDeleteSelected}
-            />
+            {!panning && (
+              <SelectionOverlay
+                selection={selection}
+                sheetWidthIn={sheetWidthIn}
+                sheetHeightIn={sheetHeightIn}
+                onDuplicate={onDuplicateSelected}
+                onDelete={onDeleteSelected}
+              />
+            )}
             {isEmpty && (
               <div className="gsb-empty-state">
                 <h2>Start Building Your Gang Sheet</h2>
