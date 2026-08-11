@@ -6,6 +6,7 @@ import { TEMPLATE_CATEGORIES, findCategory } from "./templateCatalog";
 export default function TemplatesTab({ onAddTemplate, busy }) {
   const [categoryId, setCategoryId] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   const category = findCategory(categoryId);
 
@@ -19,7 +20,22 @@ export default function TemplatesTab({ onAddTemplate, busy }) {
         </nav>
 
         <div className="gsb-template-preview">
-          <img src={preview.src} alt={preview.label} />
+          {/* A missing file otherwise renders as an empty checkerboard, which
+              reads as "transparent artwork" rather than "broken path". */}
+          <img
+            src={preview.src}
+            alt={preview.label}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+              setLoadError(preview.src);
+            }}
+          />
+          {loadError === preview.src && (
+            <p className="gsb-modal-body">
+              Couldn&apos;t load this template ({preview.src}). Check the file exists under
+              public{preview.src}.
+            </p>
+          )}
         </div>
 
         <div className="gsb-template-preview-foot">
