@@ -6,6 +6,8 @@ const CUSTOM_PROPS = ["data"];
 const MIN_ZOOM_PCT = 10;
 const MAX_ZOOM_PCT = 400;
 const ZOOM_STEP_PCT = 25;
+const MAX_HISTORY = 50;
+const MIN_SIZE_IN = 0.25;
 
 function makeId() {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -58,6 +60,10 @@ function describeObject(obj) {
     id: obj.data.id,
     kind: obj.data.kind,
     label: obj.data.label,
+    thumbUrl: obj.data.thumbUrl ?? null,
+    angle: Math.round(obj.angle ?? 0),
+    flipX: Boolean(obj.flipX),
+    flipY: Boolean(obj.flipY),
     widthIn,
     heightIn,
     xIn: pxToIn(obj.left ?? 0),
@@ -93,6 +99,14 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   const [hasSelection, setHasSelection] = useState(false);
   const [selection, setSelection] = useState(null);
 
+  // Undo/redo keeps whole-canvas snapshots rather than inverse operations:
+  // Fabric mutations are spread across drag/scale/rotate handlers, and a
+  // snapshot is the only representation guaranteed to round-trip all of them.
+  const historyRef = useRef({ past: [], future: [], present: null, lock: false });
+  const commitRef = useRef(() => {});
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
   const baseWidthPx = inToPx(sheetWidthIn);
   const baseHeightPx = inToPx(sheetHeightIn);
 
@@ -127,6 +141,22 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
 
       const emit = () => emitItems(canvasInstance, onItemsChangeRef.current);
 
+      // Batch operations (Auto Build, Tidy, draft restore) hold the lock and
+      // commit once, so one user action costs one undo step rather than one
+      // per object touched.
+      const commit = () => {
+        const history = historyRef.current;
+        if (history.lock) return;
+        if (history.present) history.past.push(history.present);
+        if (history.past.length > MAX_HISTORY) history.past.shift();
+        history.present = canvasInstance.toJSON(CUSTOM_PROPS);
+        history.future = [];
+        setCanUndo(history.past.length > 0);
+        setCanRedo(false);
+      };
+      commitRef.current = commit;
+      historyRef.current.present = canvasInstance.toJSON(CUSTOM_PROPS);
+
       // Single objects get a live measurement/action overlay; multi-selects
       // don't (there's no one set of dimensions to report).
       const syncSelection = () => {
@@ -145,11 +175,18 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
         syncSelection();
       };
 
-      canvasInstance.on("object:added", emit);
-      canvasInstance.on("object:removed", emit);
+      canvasInstance.on("object:added", () => {
+        emit();
+        commit();
+      });
+      canvasInstance.on("object:removed", () => {
+        emit();
+        commit();
+      });
       canvasInstance.on("object:modified", (e) => {
         confine(e);
         emit();
+        commit();
       });
       canvasInstance.on("object:moving", confine);
       canvasInstance.on("object:scaling", confine);
@@ -252,8 +289,13 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
         id,
         kind: item.kind,
         label: item.label,
+        thumbUrl: item.thumbUrl ?? null,
         widthPx: item.widthPx,
         heightPx: item.heightPx,
+        // Remembered so "Reset" can restore the artwork's true print size
+        // after any amount of manual scaling.
+        naturalWidthIn: item.widthIn,
+        naturalHeightIn: item.heightIn,
         vector: Boolean(item.vector),
       },
     });
@@ -278,13 +320,20 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
           h: Math.max(sheetPxRef.current.h, inToPx(options.sheetHeightIn)),
         };
       }
-      for (const { item, position } of itemsWithPositions) {
-        // Sequential: Fabric image decode is async and objects must land in a stable order.
-        // eslint-disable-next-line no-await-in-loop
-        await addItem(item, position);
+      // One batch = one undo step, rather than one per placed image.
+      historyRef.current.lock = true;
+      try {
+        for (const { item, position } of itemsWithPositions) {
+          // Sequential: Fabric image decode is async and objects must land in a stable order.
+          // eslint-disable-next-line no-await-in-loop
+          await addItem(item, position);
+        }
+      } finally {
+        historyRef.current.lock = false;
       }
       fabricRef.current?.discardActiveObject();
       fabricRef.current?.requestRenderAll();
+      commitRef.current();
     },
     [addItem],
   );
@@ -311,6 +360,232 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     canvas.setActiveObject(cloned);
     canvas.requestRenderAll();
   }, []);
+
+  // Pushes canvas state back into React after an imperative edit that didn't
+  // originate from a Fabric pointer interaction.
+  const refresh = useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    setHasSelection(Boolean(active));
+    setSelection(active?.data?.id ? describeObject(active) : null);
+    emitItems(canvas, onItemsChangeRef.current);
+  }, []);
+
+  // Applies `mutate` to the active object, then re-confines, re-renders and
+  // records a single history step — the shape every Image Options action takes.
+  const editActive = useCallback(
+    (mutate) => {
+      const canvas = fabricRef.current;
+      const active = canvas?.getActiveObject();
+      if (!canvas || !active?.data?.id) return;
+      mutate(active, canvas);
+      active.setCoords();
+      constrainToSheet(active, sheetPxRef.current.w, sheetPxRef.current.h);
+      canvas.requestRenderAll();
+      refresh();
+      commitRef.current();
+    },
+    [refresh],
+  );
+
+  const restoreSnapshot = useCallback(
+    async (state) => {
+      const canvas = fabricRef.current;
+      if (!canvas || !state) return;
+      const history = historyRef.current;
+      history.lock = true;
+      await canvas.loadFromJSON(state);
+      canvas.requestRenderAll();
+      history.lock = false;
+      refresh();
+      setCanUndo(history.past.length > 0);
+      setCanRedo(history.future.length > 0);
+    },
+    [refresh],
+  );
+
+  const undo = useCallback(async () => {
+    const history = historyRef.current;
+    if (history.past.length === 0) return;
+    history.future.push(history.present);
+    history.present = history.past.pop();
+    await restoreSnapshot(history.present);
+  }, [restoreSnapshot]);
+
+  const redo = useCallback(async () => {
+    const history = historyRef.current;
+    if (history.future.length === 0) return;
+    history.past.push(history.present);
+    history.present = history.future.pop();
+    await restoreSnapshot(history.present);
+  }, [restoreSnapshot]);
+
+  const selectById = useCallback(
+    (id) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+      const target = canvas.getObjects().find((obj) => obj.data?.id === id);
+      if (!target) return;
+      canvas.setActiveObject(target);
+      canvas.requestRenderAll();
+      refresh();
+    },
+    [refresh],
+  );
+
+  const removeById = useCallback(
+    (id) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+      const target = canvas.getObjects().find((obj) => obj.data?.id === id);
+      if (!target) return;
+      canvas.remove(target);
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      refresh();
+    },
+    [refresh],
+  );
+
+  // Width/height are authored in inches in the Image Options panel; Fabric
+  // only understands scale factors, so convert against the object's
+  // *unscaled* size rather than its current on-sheet size.
+  const setSelectionSize = useCallback(
+    ({ widthIn, heightIn }) => {
+      editActive((obj) => {
+        if (widthIn != null && obj.width) {
+          obj.scaleX = inToPx(Math.max(MIN_SIZE_IN, widthIn)) / obj.width;
+        }
+        if (heightIn != null && obj.height) {
+          obj.scaleY = inToPx(Math.max(MIN_SIZE_IN, heightIn)) / obj.height;
+        }
+      });
+    },
+    [editActive],
+  );
+
+  const rotateSelected = useCallback(
+    (deltaDeg = 90) => {
+      editActive((obj) => {
+        obj.rotate(((obj.angle ?? 0) + deltaDeg) % 360);
+      });
+    },
+    [editActive],
+  );
+
+  const flipSelected = useCallback(
+    (axis) => {
+      editActive((obj) => {
+        if (axis === "y") obj.set({ flipY: !obj.flipY });
+        else obj.set({ flipX: !obj.flipX });
+      });
+    },
+    [editActive],
+  );
+
+  const centerSelected = useCallback(() => {
+    editActive((obj, canvas) => {
+      const box = obj.getBoundingRect();
+      const targetLeft = (sheetPxRef.current.w - box.width) / 2;
+      obj.set({ left: (obj.left ?? 0) + (targetLeft - box.left) });
+      canvas.requestRenderAll();
+    });
+  }, [editActive]);
+
+  // Back to the artwork's true print size (pixels ÷ source DPI), un-rotated
+  // and un-flipped — the "Reset" escape hatch after manual scaling.
+  const resetSelected = useCallback(() => {
+    editActive((obj) => {
+      const naturalWidthIn = obj.data?.naturalWidthIn;
+      const naturalHeightIn = obj.data?.naturalHeightIn;
+      obj.set({ angle: 0, flipX: false, flipY: false });
+      if (naturalWidthIn && obj.width) obj.scaleX = inToPx(naturalWidthIn) / obj.width;
+      if (naturalHeightIn && obj.height) obj.scaleY = inToPx(naturalHeightIn) / obj.height;
+    });
+  }, [editActive]);
+
+  // Crops fully-transparent margins off a raster object by scanning its source
+  // alpha channel, then shifts the object so the visible artwork doesn't move.
+  const autoTrimSelected = useCallback(() => {
+    const canvas = fabricRef.current;
+    const active = canvas?.getActiveObject();
+    const element = active?.getElement?.();
+    if (!canvas || !element || active.data?.vector) return { trimmed: false };
+
+    const srcW = element.naturalWidth || element.width;
+    const srcH = element.naturalHeight || element.height;
+    if (!srcW || !srcH) return { trimmed: false };
+
+    const scratch = document.createElement("canvas");
+    scratch.width = srcW;
+    scratch.height = srcH;
+    const ctx = scratch.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(element, 0, 0);
+
+    let data;
+    try {
+      data = ctx.getImageData(0, 0, srcW, srcH).data;
+    } catch {
+      // Tainted canvas (cross-origin source) — nothing we can read.
+      return { trimmed: false };
+    }
+
+    let minX = srcW;
+    let minY = srcH;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < srcH; y += 1) {
+      for (let x = 0; x < srcW; x += 1) {
+        if (data[(y * srcW + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return { trimmed: false };
+
+    const cropX = (active.cropX ?? 0) + minX;
+    const cropY = (active.cropY ?? 0) + minY;
+    const newW = maxX - minX + 1;
+    const newH = maxY - minY + 1;
+    if (newW === active.width && newH === active.height) return { trimmed: false };
+
+    const { scaleX, scaleY } = active;
+    // Offset from the old visible origin to the new one, in object-local
+    // space, mirrored when the object is flipped and then rotated into world
+    // space so the artwork stays put on the sheet.
+    const localDx = (active.flipX ? active.width - minX - newW : minX) * scaleX;
+    const localDy = (active.flipY ? active.height - minY - newH : minY) * scaleY;
+    const rad = ((active.angle ?? 0) * Math.PI) / 180;
+    const worldDx = localDx * Math.cos(rad) - localDy * Math.sin(rad);
+    const worldDy = localDx * Math.sin(rad) + localDy * Math.cos(rad);
+
+    active.set({
+      cropX,
+      cropY,
+      width: newW,
+      height: newH,
+      left: (active.left ?? 0) + worldDx,
+      top: (active.top ?? 0) + worldDy,
+      data: {
+        ...active.data,
+        // DPI is derived from source pixels over printed inches, so the
+        // trimmed pixel count has to replace the original.
+        widthPx: newW,
+        heightPx: newH,
+        trimmed: true,
+      },
+    });
+    active.setCoords();
+    constrainToSheet(active, sheetPxRef.current.w, sheetPxRef.current.h);
+    canvas.requestRenderAll();
+    refresh();
+    commitRef.current();
+    return { trimmed: true };
+  }, [refresh]);
 
   // Repacks everything currently on the sheet into a guaranteed
   // non-overlapping layout. Returns the length the result consumes so the
@@ -353,6 +628,7 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
 
       canvas.requestRenderAll();
       emitItems(canvas, onItemsChangeRef.current);
+      commitRef.current();
       return { usedHeightIn };
     },
     [sheetWidthIn],
@@ -367,8 +643,17 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
   const importState = useCallback(async (json) => {
     const canvas = fabricRef.current;
     if (!canvas || !json) return;
+    // A restored draft is the new baseline, not an undoable edit.
+    const history = historyRef.current;
+    history.lock = true;
     await canvas.loadFromJSON(json);
     canvas.requestRenderAll();
+    history.lock = false;
+    history.past = [];
+    history.future = [];
+    history.present = canvas.toJSON(CUSTOM_PROPS);
+    setCanUndo(false);
+    setCanRedo(false);
     emitItems(canvas, onItemsChangeRef.current);
   }, []);
 
@@ -377,6 +662,8 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     zoomPct,
     hasSelection,
     selection,
+    canUndo,
+    canRedo,
     zoomIn,
     zoomOut,
     zoomReset,
@@ -384,7 +671,17 @@ export function useFabricCanvas({ canvasRef, sheetWidthIn, sheetHeightIn, onItem
     addItem,
     addItems,
     removeSelected,
+    removeById,
+    selectById,
     duplicateSelected,
+    setSelectionSize,
+    rotateSelected,
+    flipSelected,
+    centerSelected,
+    resetSelected,
+    autoTrimSelected,
+    undo,
+    redo,
     tidyCanvas,
     exportState,
     importState,
