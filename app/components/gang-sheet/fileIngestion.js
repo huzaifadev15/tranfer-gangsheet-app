@@ -167,6 +167,41 @@ async function rasterizePdfFirstPage(file) {
   };
 }
 
+// Loads a template from the app's own /public folder into the same normalized
+// shape an upload produces. The bitmap is re-encoded to PNG rather than kept
+// as its source format (AVIF/WEBP): Fabric serializes the object to a data URL
+// when a draft is saved, and the pixel tools all round-trip through PNG.
+export async function ingestImageUrl(src, label) {
+  const element = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Couldn't load template "${label}".`));
+    img.src = src;
+  });
+
+  const widthPx = element.naturalWidth;
+  const heightPx = element.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = widthPx;
+  canvas.height = heightPx;
+  canvas.getContext("2d").drawImage(element, 0, 0);
+
+  const dataUrl = canvas.toDataURL("image/png");
+  const { widthIn, heightIn } = normalizeToInitialSize(widthPx, heightPx);
+
+  return {
+    kind: "image",
+    dataUrl,
+    thumbUrl: src,
+    widthIn,
+    heightIn,
+    widthPx,
+    heightPx,
+    label,
+  };
+}
+
 export async function ingestFile(file) {
   const validation = validateFile(file);
   if (!validation.ok) {

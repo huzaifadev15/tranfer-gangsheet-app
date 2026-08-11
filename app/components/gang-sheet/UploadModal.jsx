@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
+import TemplatesTab from "./TemplatesTab";
 
 const ACCEPT =
   "image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf";
 
-export default function UploadModal({ onClose, onFiles, progress }) {
+export default function UploadModal({ onClose, onFiles, progress, onAddTemplate, busy }) {
   const inputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
+  const [tab, setTab] = useState("upload");
 
   const uploading = Boolean(progress);
   const pct = uploading && progress.total
@@ -30,6 +32,29 @@ export default function UploadModal({ onClose, onFiles, progress }) {
             disabled={uploading}
           >
             ×
+          </button>
+        </div>
+
+        <div className="gsb-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "upload"}
+            className={`gsb-tab${tab === "upload" ? " gsb-tab-on" : ""}`}
+            onClick={() => setTab("upload")}
+            disabled={uploading}
+          >
+            ⬆ Upload
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "templates"}
+            className={`gsb-tab${tab === "templates" ? " gsb-tab-on" : ""}`}
+            onClick={() => setTab("templates")}
+            disabled={uploading}
+          >
+            ▦ Templates
           </button>
         </div>
 
@@ -67,6 +92,8 @@ export default function UploadModal({ onClose, onFiles, progress }) {
               <span>{pct}%</span>
             </div>
           </div>
+        ) : tab === "templates" ? (
+          <TemplatesTab onAddTemplate={onAddTemplate} busy={busy} />
         ) : (
           <button
             type="button"

@@ -515,9 +515,14 @@
   left: 2px;
 }
 
+/* Right-aligned against the tick marks and clipped to the ruler's own width,
+   so a four-digit label on a long sheet can't spill out over the left panel. */
 .gsb-ruler-v .gsb-tick em {
   top: -5px;
   right: 13px;
+  left: 2px;
+  text-align: right;
+  overflow: hidden;
 }
 
 .gsb-canvas-slot {
@@ -1750,6 +1755,146 @@
   text-align: center;
   font-size: 12px;
   font-weight: 700;
+}
+
+/* Add Images tabs + Templates browser */
+.gsb-tabs {
+  display: flex;
+  align-self: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  background: #f7f8fa;
+}
+
+.gsb-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.gsb-tab-on {
+  background: #ffffff;
+  border-color: #e2e4e9;
+  color: #1a1a1a;
+}
+
+.gsb-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gsb-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.gsb-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.gsb-crumbs-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8a8f98;
+}
+
+.gsb-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.gsb-template-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gsb-template-card:hover {
+  border-color: #1f6feb;
+}
+
+/* Checkerboard behind the artwork so transparent PNG/AVIF templates read as
+   cut-outs rather than floating on white. */
+.gsb-template-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  padding: 10px;
+  background:
+    repeating-conic-gradient(#eceef2 0% 25%, #ffffff 0% 50%) 50% / 14px 14px;
+}
+
+.gsb-template-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.gsb-template-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 9px 10px;
+  border-top: 1px solid #e2e4e9;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gsb-template-name em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8a8f98;
+}
+
+.gsb-template-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 340px;
+  padding: 16px;
+  border-radius: 10px;
+  background:
+    repeating-conic-gradient(#eceef2 0% 25%, #ffffff 0% 50%) 50% / 16px 16px;
+}
+
+.gsb-template-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.gsb-template-preview-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* Topbar tool cluster */

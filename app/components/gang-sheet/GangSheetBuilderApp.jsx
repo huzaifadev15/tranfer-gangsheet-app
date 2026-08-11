@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./gang-sheet.css";
 import { useFabricCanvas } from "./useFabricCanvas";
 import { coveragePercent } from "./binPacking";
-import { ingestFile } from "./fileIngestion";
+import { ingestFile, ingestImageUrl } from "./fileIngestion";
 import { saveDraft, restoreDraft } from "./persistence";
 import { ftToIn, SHEET_WIDTH_IN } from "./units";
 import LeftPanel from "./LeftPanel";
@@ -214,6 +214,27 @@ export default function GangSheetBuilderApp({ shop }) {
       setBusy(false);
     },
     [canvasApi, sheetLengthFt],
+  );
+
+  // A chosen template joins the upload gallery *and* lands on the sheet, so
+  // it can be re-placed later without re-browsing the catalog.
+  const handleAddTemplate = useCallback(
+    async (template) => {
+      setBusy(true);
+      setErrorMsg(null);
+      try {
+        const item = await ingestImageUrl(template.src, template.label);
+        const withId = { ...item, id: makeTempId("tpl") };
+        setLibrary((prev) => [...prev, withId]);
+        await handlePlaceLibraryItem(withId);
+        setUploadOpen(false);
+      } catch (err) {
+        setErrorMsg(err.message || "Couldn't add that template.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [handlePlaceLibraryItem],
   );
 
   const handleRemoveLibraryItem = useCallback((id) => {
@@ -546,6 +567,8 @@ export default function GangSheetBuilderApp({ shop }) {
           onClose={() => setUploadOpen(false)}
           onFiles={handleFilesSelected}
           progress={uploadProgress}
+          onAddTemplate={handleAddTemplate}
+          busy={busy}
         />
       )}
 
