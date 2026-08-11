@@ -42,6 +42,10 @@ export default function CanvasArea({
   selection,
   onDuplicateSelected,
   onDeleteSelected,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }) {
   const pxPerInDisplayed = PX_PER_IN * (zoomPct / 100);
   const contentWidthPx = sheetWidthIn * pxPerInDisplayed;
@@ -50,6 +54,27 @@ export default function CanvasArea({
   return (
     <div className="gsb-canvas-area">
       <div className="gsb-zoom-bar">
+        <div className="gsb-history-group">
+          <button
+            type="button"
+            className="gsb-btn gsb-btn-small"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+          >
+            ↺ Undo
+          </button>
+          <button
+            type="button"
+            className="gsb-btn gsb-btn-small"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            ↻ Redo
+          </button>
+        </div>
+        <span className="gsb-zoom-spacer" />
         <button type="button" className="gsb-icon-btn" onClick={onZoomOut} aria-label="Zoom out">
           −
         </button>

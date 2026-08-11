@@ -12,6 +12,7 @@ import SheetSizeControl from "./SheetSizeControl";
 import NamesNumbersModal from "./NamesNumbersModal";
 import UploadModal from "./UploadModal";
 import IssuePanel from "./IssuePanel";
+import ImageOptionsPanel from "./ImageOptionsPanel";
 import AutoBuilderModal from "./AutoBuilderModal";
 import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
 
@@ -39,6 +40,7 @@ export default function GangSheetBuilderApp({ shop }) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [autoBuilderOpen, setAutoBuilderOpen] = useState(false);
   const [allowOverlaps, setAllowOverlaps] = useState(false);
+  const [optionsDismissed, setOptionsDismissed] = useState(false);
 
   const sheetHeightIn = ftToIn(sheetLengthFt);
 
@@ -83,12 +85,24 @@ export default function GangSheetBuilderApp({ shop }) {
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable) return;
 
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+
       if ((e.key === "Delete" || e.key === "Backspace") && canvasApi.hasSelection) {
         e.preventDefault();
         canvasApi.removeSelected();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && canvasApi.hasSelection) {
+      } else if (mod && key === "d" && canvasApi.hasSelection) {
         e.preventDefault();
         canvasApi.duplicateSelected();
+      } else if (mod && key === "z" && e.shiftKey) {
+        e.preventDefault();
+        canvasApi.redo();
+      } else if (mod && key === "z") {
+        e.preventDefault();
+        canvasApi.undo();
+      } else if (mod && key === "y") {
+        e.preventDefault();
+        canvasApi.redo();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -238,6 +252,30 @@ export default function GangSheetBuilderApp({ shop }) {
     [items, sheetHeightIn],
   );
 
+  // Selecting a different object re-opens the inspector that a previous
+  // "×" dismissed, matching how the panel behaves as a per-selection sheet.
+  const selectedId = canvasApi.selection?.id ?? null;
+  useEffect(() => {
+    if (selectedId) setOptionsDismissed(false);
+  }, [selectedId]);
+
+  const handleDuplicateById = useCallback(
+    (id) => {
+      canvasApi.selectById(id);
+      canvasApi.duplicateSelected();
+    },
+    [canvasApi],
+  );
+
+  // Length the artwork actually reaches, so the issue panel can offer a
+  // one-click sheet that fits instead of only re-packing.
+  const suggestedFt = useMemo(() => {
+    if (items.length === 0) return null;
+    const lowestIn = items.reduce((low, item) => Math.max(low, item.boxYIn + item.boxHIn), 0);
+    const needFt = Math.ceil(lowestIn / 12);
+    return needFt > sheetLengthFt ? Math.min(20, needFt) : null;
+  }, [items, sheetLengthFt]);
+
   const handleTidy = useCallback(() => {
     setAllowOverlaps(false);
     const { usedHeightIn } = canvasApi.tidyCanvas();
@@ -293,6 +331,22 @@ export default function GangSheetBuilderApp({ shop }) {
           onClearLibrary={handleClearLibrary}
         />
 
+        {canvasApi.selection && !optionsDismissed && (
+          <ImageOptionsPanel
+            selection={canvasApi.selection}
+            onClose={() => setOptionsDismissed(true)}
+            onRemove={canvasApi.removeSelected}
+            onResize={canvasApi.setSelectionSize}
+            onDuplicate={canvasApi.duplicateSelected}
+            onAutoTrim={canvasApi.autoTrimSelected}
+            onRotate={canvasApi.rotateSelected}
+            onFlip={canvasApi.flipSelected}
+            onCenter={canvasApi.centerSelected}
+            onReset={canvasApi.resetSelected}
+            trimAvailable={canvasApi.selection.kind === "image"}
+          />
+        )}
+
         <CanvasArea
           canvasElRef={canvasElRef}
           containerRef={viewportRef}
@@ -312,15 +366,23 @@ export default function GangSheetBuilderApp({ shop }) {
           selection={canvasApi.selection}
           onDuplicateSelected={canvasApi.duplicateSelected}
           onDeleteSelected={canvasApi.removeSelected}
+          onUndo={canvasApi.undo}
+          onRedo={canvasApi.redo}
+          canUndo={canvasApi.canUndo}
+          canRedo={canvasApi.canRedo}
         />
 
         <RightPanel
-          imageCount={items.length}
+          items={items}
+          selectedId={selectedId}
           sheetLengthFt={sheetLengthFt}
           material={material}
           coveragePct={coveragePct}
           onSave={handleSave}
           saveStatus={saveStatus}
+          onSelectItem={canvasApi.selectById}
+          onRemoveItem={canvasApi.removeById}
+          onDuplicateItem={handleDuplicateById}
         />
       </div>
 
@@ -329,6 +391,8 @@ export default function GangSheetBuilderApp({ shop }) {
         outOfBounds={outOfBounds}
         onTidy={handleTidy}
         onAllowOverlaps={() => setAllowOverlaps(true)}
+        suggestedFt={suggestedFt}
+        onGrowSheet={setSheetLengthFt}
       />
 
       {errorMsg && <div className="gsb-toast gsb-toast-error">{errorMsg}</div>}

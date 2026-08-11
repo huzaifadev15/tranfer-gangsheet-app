@@ -1487,6 +1487,261 @@
   }
 }
 
+/* Image Options inspector */
+.gsb-options-panel {
+  width: 260px;
+  flex-shrink: 0;
+  padding: 16px;
+  background: #ffffff;
+  border-right: 1px solid #e2e4e9;
+  box-shadow: inset 3px 0 0 #1f6feb;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gsb-options-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gsb-options-head strong {
+  display: block;
+  font-size: 14px;
+}
+
+.gsb-options-name {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #8a8f98;
+}
+
+.gsb-options-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gsb-link-danger {
+  color: #b42318;
+}
+
+.gsb-options-size {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gsb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #8a8f98;
+  position: relative;
+}
+
+.gsb-field input {
+  width: 82px;
+  border: 1px solid #d8dbe0;
+  border-radius: 6px;
+  padding: 7px 22px 7px 8px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.gsb-field em {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-style: normal;
+  font-size: 11px;
+  color: #8a8f98;
+}
+
+.gsb-lock-btn {
+  appearance: none;
+  border: 1px solid #d8dbe0;
+  background: #ffffff;
+  border-radius: 6px;
+  height: 32px;
+  width: 32px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.gsb-lock-on {
+  border-color: #1f6feb;
+  background: #eef5ff;
+}
+
+.gsb-options-group {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+
+.gsb-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gsb-options-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gsb-tool-btn {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border: 1px solid #d8dbe0;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.gsb-tool-btn span {
+  font-size: 16px;
+}
+
+.gsb-tool-btn:hover:not(:disabled) {
+  border-color: #1f6feb;
+  background: #f5f9ff;
+}
+
+.gsb-tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Placed-artwork list in the right panel */
+.gsb-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gsb-sheet-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #8a8f98;
+}
+
+.gsb-sheet-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gsb-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #e2e4e9;
+  border-radius: 8px;
+}
+
+.gsb-sheet-item-active {
+  border-color: #1f6feb;
+  background: #f5f9ff;
+}
+
+.gsb-sheet-thumb {
+  appearance: none;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid #e2e4e9;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.gsb-sheet-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gsb-sheet-meta {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gsb-sheet-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gsb-sheet-dims {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8a8f98;
+}
+
+.gsb-sheet-qty {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.gsb-sheet-qty .gsb-icon-btn {
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+}
+
+.gsb-sheet-count {
+  min-width: 18px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Undo/redo cluster in the canvas toolbar */
+.gsb-history-group {
+  display: flex;
+  gap: 6px;
+}
+
+.gsb-zoom-spacer {
+  flex: 1;
+}
+
 @media (max-width: 900px) {
   .gsb-body {
     flex-direction: column;
@@ -1494,7 +1749,8 @@
   }
 
   .gsb-left-panel,
-  .gsb-right-panel {
+  .gsb-right-panel,
+  .gsb-options-panel {
     width: 100%;
     border: none;
     border-bottom: 1px solid #e2e4e9;

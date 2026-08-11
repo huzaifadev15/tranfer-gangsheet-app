@@ -1,6 +1,13 @@
 import { useState } from "react";
 
-export default function IssuePanel({ overlaps, outOfBounds, onTidy, onAllowOverlaps }) {
+export default function IssuePanel({
+  overlaps,
+  outOfBounds,
+  onTidy,
+  onAllowOverlaps,
+  suggestedFt,
+  onGrowSheet,
+}) {
   const [minimized, setMinimized] = useState(false);
 
   const hasOverlaps = overlaps.length > 0;
@@ -60,6 +67,15 @@ export default function IssuePanel({ overlaps, outOfBounds, onTidy, onAllowOverl
         <button type="button" className="gsb-btn gsb-btn-small" onClick={onTidy}>
           Tidy Canvas
         </button>
+        {suggestedFt != null && (
+          <button
+            type="button"
+            className="gsb-btn gsb-btn-small gsb-btn-primary"
+            onClick={() => onGrowSheet(suggestedFt)}
+          >
+            Increase to {suggestedFt} ft
+          </button>
+        )}
         {hasOverlaps && (
           <button
             type="button"
