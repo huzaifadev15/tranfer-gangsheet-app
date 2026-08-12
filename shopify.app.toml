@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "21f8809603901b2f538d19320c2bb232"
+client_id = "6ac368d0adacee74d48e1eae5a51cd49"
 name = "tranfer-gangsheet-app"
 application_url = "https://tranfer-gangsheet-app.vercel.app"
 embedded = true
