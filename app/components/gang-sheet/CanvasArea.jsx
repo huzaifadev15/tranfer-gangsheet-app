@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { PX_PER_IN } from "./units";
 import SelectionOverlay from "./SelectionOverlay";
+import Icon from "./Icon";
 
 // The vertical ruler needs more room than the horizontal one: on a 40ft sheet
 // its labels reach four characters ('480"'), and they're laid out across the
@@ -110,45 +111,67 @@ export default function CanvasArea({
 
   return (
     <div className="gsb-canvas-area">
-      <div className="gsb-zoom-bar">
-        <div className="gsb-history-group">
-          <button
-            type="button"
-            className="gsb-btn gsb-btn-small"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-          >
-            ↺ Undo
-          </button>
-          <button
-            type="button"
-            className="gsb-btn gsb-btn-small"
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            ↻ Redo
-          </button>
-        </div>
-        <span className="gsb-zoom-spacer" />
-        <button type="button" className="gsb-icon-btn" onClick={onZoomOut} aria-label="Zoom out">
-          −
-        </button>
-        <span className="gsb-zoom-readout">{zoomPct}%</span>
-        <button type="button" className="gsb-icon-btn" onClick={onZoomIn} aria-label="Zoom in">
-          +
+      {/* History and zoom float over the canvas rather than occupying a full
+          -width strip, so the sheet itself gets the vertical space. */}
+      <div className="gsb-float-pill gsb-float-history">
+        <button
+          type="button"
+          className="gsb-pill-btn"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+        >
+          <Icon name="undo" />
         </button>
         <button
           type="button"
-          className="gsb-btn gsb-btn-small"
+          className="gsb-pill-btn"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          aria-label="Redo"
+        >
+          <Icon name="redo" />
+        </button>
+      </div>
+
+      <div className="gsb-float-pill gsb-float-zoom">
+        <button
+          type="button"
+          className="gsb-pill-btn"
+          onClick={onZoomOut}
+          aria-label="Zoom out"
+          title="Zoom out"
+        >
+          <Icon name="zoomOut" />
+        </button>
+        <button
+          type="button"
+          className="gsb-pill-readout"
+          onClick={onZoomReset}
+          title="Reset to 100%"
+        >
+          {zoomPct}%
+        </button>
+        <button
+          type="button"
+          className="gsb-pill-btn"
+          onClick={onZoomIn}
+          aria-label="Zoom in"
+          title="Zoom in"
+        >
+          <Icon name="zoomIn" />
+        </button>
+        <span className="gsb-pill-sep" />
+        <button
+          type="button"
+          className="gsb-pill-btn"
           onClick={onZoomFit}
+          aria-label="Fit sheet width"
           title="Fit sheet width"
         >
-          ↔ Fit
-        </button>
-        <button type="button" className="gsb-btn gsb-btn-small" onClick={onZoomReset}>
-          100%
+          <Icon name="fit" />
         </button>
       </div>
 
@@ -215,16 +238,25 @@ export default function CanvasArea({
                 <p>Upload your designs and we&apos;ll arrange them efficiently.</p>
                 <div className="gsb-empty-cards">
                   <button type="button" className="gsb-empty-card" onClick={onAutoBuildCta}>
-                    <strong>+ Auto Build</strong>
+                    <strong>
+                      <Icon name="wand" />
+                      Auto Build
+                    </strong>
                     <span>Add images in bulk</span>
                   </button>
                   <button type="button" className="gsb-empty-card" onClick={onManualBuildCta}>
-                    <strong>+ Manual Build</strong>
+                    <strong>
+                      <Icon name="plus" />
+                      Manual Build
+                    </strong>
                     <span>Add images one at a time</span>
                   </button>
                   <button type="button" className="gsb-empty-card" onClick={onNamesNumbersCta}>
-                    <strong>T Names &amp; Numbers</strong>
-                    <span>Generate text tiles</span>
+                    <strong>
+                      <Icon name="text" />
+                      Names &amp; Numbers
+                    </strong>
+                    <span>Generate text rosters</span>
                   </button>
                 </div>
               </div>

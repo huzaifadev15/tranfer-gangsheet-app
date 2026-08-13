@@ -1,8 +1,26 @@
+/* One accent drives every primary action, so the editor reads as a single
+   system instead of a navy button next to a grey one next to a blue link. */
+.gsb-root {
+  --gsb-accent: #1a73e8;
+  --gsb-accent-hover: #1560c4;
+  --gsb-accent-soft: #eef4ff;
+  --gsb-border: #d8dbe0;
+  --gsb-border-strong: #b7bcc4;
+  --gsb-muted: #6b7280;
+}
+
 .gsb-root,
 .gsb-root *,
 .gsb-root *::before,
 .gsb-root *::after {
   box-sizing: border-box;
+}
+
+/* Icons inherit the button's colour and scale with its text. */
+.gsb-icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex-shrink: 0;
 }
 
 .gsb-root {
@@ -35,7 +53,7 @@
   height: 28px;
   border-radius: 50%;
   border: 3px solid #d8dbe0;
-  border-top-color: #1f6feb;
+  border-top-color: var(--gsb-accent);
   animation: gsb-spin 0.8s linear infinite;
 }
 
@@ -154,7 +172,11 @@
 /* Buttons & inputs */
 .gsb-btn {
   appearance: none;
-  border: 1px solid #d8dbe0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--gsb-border);
   background: #ffffff;
   color: #1a1a1a;
   border-radius: 8px;
@@ -165,7 +187,7 @@
 }
 
 .gsb-btn:hover:not(:disabled) {
-  border-color: #b7bcc4;
+  border-color: var(--gsb-border-strong);
 }
 
 .gsb-btn:disabled {
@@ -178,13 +200,14 @@
 }
 
 .gsb-btn-primary {
-  background: #14213d;
-  border-color: #14213d;
+  background: var(--gsb-accent);
+  border-color: var(--gsb-accent);
   color: #ffffff;
 }
 
 .gsb-btn-primary:hover:not(:disabled) {
-  background: #1f2f52;
+  background: var(--gsb-accent-hover);
+  border-color: var(--gsb-accent-hover);
 }
 
 .gsb-btn-danger {
@@ -245,7 +268,7 @@
 }
 
 .gsb-dropzone-active {
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
   background: #eef5ff;
 }
 
@@ -253,6 +276,13 @@
   margin: 0 0 4px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.gsb-dropzone-icon {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 8px;
+  color: #98a2b3;
 }
 
 .gsb-dropzone-formats {
@@ -284,7 +314,7 @@
   appearance: none;
   border: none;
   background: none;
-  color: #1f6feb;
+  color: var(--gsb-accent);
   font-size: 12px;
   cursor: pointer;
   padding: 0;
@@ -375,7 +405,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   background: #eef5ff;
-  color: #1f6feb;
+  color: var(--gsb-accent);
   border-radius: 4px;
   padding: 1px 4px;
 }
@@ -426,7 +456,7 @@
 
 .gsb-progress-fill {
   height: 100%;
-  background: #1f6feb;
+  background: var(--gsb-accent);
   transition: width 0.2s ease;
 }
 
@@ -436,22 +466,77 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Containing block for the floating history / zoom pills. */
+  position: relative;
 }
 
-.gsb-zoom-bar {
+/* Floating control pills over the canvas */
+.gsb-float-pill {
+  position: absolute;
+  z-index: 5;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid #e2e4e9;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
   background: #ffffff;
+  border: 1px solid var(--gsb-border);
+  box-shadow: 0 2px 10px rgba(16, 24, 40, 0.12);
 }
 
-.gsb-zoom-readout {
+.gsb-float-history {
+  top: 12px;
+  left: 12px;
+}
+
+.gsb-float-zoom {
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.gsb-pill-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #344054;
+  border-radius: 999px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.gsb-pill-btn:hover:not(:disabled) {
+  background: var(--gsb-accent-soft);
+  color: var(--gsb-accent);
+}
+
+.gsb-pill-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.gsb-pill-readout {
+  appearance: none;
+  border: none;
+  background: none;
+  min-width: 46px;
+  padding: 0 4px;
   font-size: 12px;
-  color: #555;
-  min-width: 40px;
-  text-align: center;
+  font-weight: 600;
+  color: #344054;
+  cursor: pointer;
+}
+
+.gsb-pill-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--gsb-border);
 }
 
 .gsb-viewport {
@@ -543,12 +628,16 @@
   left: 2px;
 }
 
-/* Right-aligned against the tick marks and clipped to the ruler's own width,
-   so a four-digit label on a long sheet can't spill out over the left panel. */
+/* Right-aligned against the tick marks. The containing block here is the tick
+   itself (11px wide for a major), NOT the ruler — so pairing left with right
+   resolves to a negative width and the label collapses to nothing. Anchor on
+   the right edge and give it an explicit width instead: 13px of clearance for
+   the tick mark, leaving room inside the 46px ruler for a four-digit label. */
 .gsb-ruler-v .gsb-tick em {
   top: -5px;
   right: 13px;
-  left: 2px;
+  left: auto;
+  width: 31px;
   text-align: right;
   overflow: hidden;
 }
@@ -558,7 +647,8 @@
   /* Own stacking context, below the rulers (z-index 2/3), so neither canvas
      content nor the selection overlay can spill over them. */
   z-index: 1;
-  background: repeating-conic-gradient(#f0f1f3 0% 25%, #ffffff 0% 50%) 0 0 / 16px 16px;
+  /* Reads clearly as "transparent" rather than as an off-white sheet. */
+  background: repeating-conic-gradient(#e4e7ec 0% 25%, #ffffff 0% 50%) 0 0 / 20px 20px;
   box-shadow: 0 0 0 1px #d8dbe0;
 }
 
@@ -613,7 +703,7 @@
   gap: 10px;
   padding: 5px 10px;
   border-radius: 6px;
-  background: #1f6feb;
+  background: var(--gsb-accent);
   color: #ffffff;
   font-size: 11px;
   white-space: nowrap;
@@ -737,27 +827,41 @@
   justify-content: center;
 }
 
+/* Filled primary buttons, with the helper line sitting outside the button so
+   the tap target stays a solid block of accent colour. */
 .gsb-empty-card {
   appearance: none;
-  border: 1px solid #d8dbe0;
-  background: #ffffff;
+  border: 1px solid var(--gsb-accent);
+  background: var(--gsb-accent);
+  color: #ffffff;
   border-radius: 10px;
-  padding: 14px 18px;
-  min-width: 150px;
+  padding: 12px 18px;
+  min-width: 160px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  text-align: left;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-weight: 600;
 }
 
 .gsb-empty-card:hover {
-  border-color: #1f6feb;
+  background: var(--gsb-accent-hover);
+  border-color: var(--gsb-accent-hover);
+}
+
+.gsb-empty-card strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
 }
 
 .gsb-empty-card span {
   font-size: 12px;
-  color: #6b7280;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Right panel stats */
@@ -790,7 +894,7 @@
 .gsb-save-status {
   margin: 0;
   font-size: 12px;
-  color: #1f6feb;
+  color: var(--gsb-accent);
 }
 
 /* Toast */
@@ -916,7 +1020,7 @@
 
 .gsb-icon-btn-on {
   background: #eef5ff;
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
 }
 
 .gsb-ab-meta {
@@ -940,8 +1044,8 @@
 }
 
 .gsb-ab-add:hover {
-  border-color: #1f6feb;
-  color: #1f6feb;
+  border-color: var(--gsb-accent);
+  color: var(--gsb-accent);
 }
 
 .gsb-ab-preview-pane {
@@ -1407,7 +1511,7 @@
 }
 
 .gsb-nn-swatch-on {
-  outline: 2px solid #14213d;
+  outline: 2px solid var(--gsb-accent);
   outline-offset: 1px;
 }
 
@@ -1452,7 +1556,7 @@
 }
 
 .gsb-switch-on {
-  background: #14213d;
+  background: var(--gsb-accent);
 }
 
 .gsb-switch-on .gsb-switch-knob {
@@ -1547,7 +1651,7 @@
   padding: 16px;
   background: #ffffff;
   border-right: 1px solid #e2e4e9;
-  box-shadow: inset 3px 0 0 #1f6feb;
+  box-shadow: inset 3px 0 0 var(--gsb-accent);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1632,7 +1736,7 @@
 }
 
 .gsb-lock-on {
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
   background: #eef5ff;
 }
 
@@ -1679,7 +1783,7 @@
 }
 
 .gsb-tool-btn:hover:not(:disabled) {
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
   background: #f5f9ff;
 }
 
@@ -1720,7 +1824,7 @@
 }
 
 .gsb-sheet-item-active {
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
   background: #f5f9ff;
 }
 
@@ -1862,7 +1966,7 @@
 }
 
 .gsb-template-card:hover {
-  border-color: #1f6feb;
+  border-color: var(--gsb-accent);
 }
 
 /* Checkerboard behind the artwork so transparent PNG/AVIF templates read as
@@ -2023,7 +2127,7 @@
 }
 
 .gsb-switch-on {
-  background: #1f6feb;
+  background: var(--gsb-accent);
 }
 
 .gsb-switch-knob {
@@ -2194,7 +2298,7 @@
 }
 
 .gsb-swatch-active {
-  outline: 2px solid #1f6feb;
+  outline: 2px solid var(--gsb-accent);
   outline-offset: 1px;
 }
 
@@ -2225,13 +2329,29 @@
 }
 
 /* Undo/redo cluster in the canvas toolbar */
-.gsb-history-group {
-  display: flex;
-  gap: 6px;
+/* Back link + footer-pinned panel sections */
+.gsb-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid var(--gsb-border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #344054;
+  text-decoration: none;
 }
 
-.gsb-zoom-spacer {
-  flex: 1;
+.gsb-back-link:hover {
+  border-color: var(--gsb-border-strong);
+  background: #f7f8fa;
+}
+
+/* margin-top:auto pushes these to the foot of their flex-column panel. */
+.gsb-panel-heading-footer,
+.gsb-stats-footer {
+  margin-top: auto;
 }
 
 @media (max-width: 900px) {

@@ -19,6 +19,7 @@ import RecolorModal from "./RecolorModal";
 import { removeBackground } from "./imageOps";
 import AutoBuilderModal from "./AutoBuilderModal";
 import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
+import Icon from "./Icon";
 
 const MATERIALS = ["DTF", "UV DTF", "Glitter", "Glow in the Dark", "Gold Foil", "Silver Foil"];
 
@@ -407,6 +408,12 @@ export default function GangSheetBuilderApp({
     <div className="gsb-root">
       <header className="gsb-topbar">
         <div className="gsb-topbar-title">
+          {/* Without this the customer has no way back to the PDP they came
+              from — the builder fills the whole storefront page. */}
+          <a className="gsb-back-link" href="/products/build-your-own-gang-sheet">
+            <Icon name="back" />
+            Back
+          </a>
           <span className="gsb-topbar-eyebrow">Gang Sheet Builder</span>
           {initialPrice && (
             <span

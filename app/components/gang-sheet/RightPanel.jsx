@@ -1,3 +1,5 @@
+import Icon from "./Icon";
+
 const GOOD_DPI = 300;
 const WARN_DPI = 150;
 
@@ -39,6 +41,7 @@ export default function RightPanel({
   return (
     <aside className="gsb-right-panel">
       <button type="button" className="gsb-btn gsb-btn-block" onClick={onSave}>
+        <Icon name="save" />
         Save Gang Sheet
       </button>
       <button
@@ -47,6 +50,7 @@ export default function RightPanel({
         disabled
         title="Coming soon"
       >
+        <Icon name="cart" />
         Add to Cart
       </button>
       {saveStatus && <p className="gsb-save-status">{saveStatus}</p>}
@@ -117,7 +121,8 @@ export default function RightPanel({
         )}
       </div>
 
-      <dl className="gsb-stats">
+      {/* Totals sit at the foot of the panel, below the sheet contents. */}
+      <dl className="gsb-stats gsb-stats-footer">
         <div className="gsb-stats-row">
           <dt>Images</dt>
           <dd>{items.length}</dd>
