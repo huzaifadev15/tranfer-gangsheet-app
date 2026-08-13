@@ -59,9 +59,6 @@ export default function CanvasArea({
   onZoomReset,
   onZoomFit,
   isEmpty,
-  onManualBuildCta,
-  onAutoBuildCta,
-  onNamesNumbersCta,
   selection,
   onDuplicateSelected,
   onDeleteSelected,
@@ -232,34 +229,10 @@ export default function CanvasArea({
                 onDelete={onDeleteSelected}
               />
             )}
+            {/* The start-here prompt is a one-time modal now (StartModal),
+                so nothing is permanently parked over the middle of the sheet. */}
             {isEmpty && (
-              <div className="gsb-empty-state">
-                <h2>Start Building Your Gang Sheet</h2>
-                <p>Upload your designs and we&apos;ll arrange them efficiently.</p>
-                <div className="gsb-empty-cards">
-                  <button type="button" className="gsb-empty-card" onClick={onAutoBuildCta}>
-                    <strong>
-                      <Icon name="wand" />
-                      Auto Build
-                    </strong>
-                    <span>Add images in bulk</span>
-                  </button>
-                  <button type="button" className="gsb-empty-card" onClick={onManualBuildCta}>
-                    <strong>
-                      <Icon name="plus" />
-                      Manual Build
-                    </strong>
-                    <span>Add images one at a time</span>
-                  </button>
-                  <button type="button" className="gsb-empty-card" onClick={onNamesNumbersCta}>
-                    <strong>
-                      <Icon name="text" />
-                      Names &amp; Numbers
-                    </strong>
-                    <span>Generate text rosters</span>
-                  </button>
-                </div>
-              </div>
+              <p className="gsb-canvas-hint">Drop or add images to begin</p>
             )}
           </div>
         </div>
