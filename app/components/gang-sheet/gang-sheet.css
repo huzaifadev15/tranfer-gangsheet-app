@@ -484,9 +484,11 @@
   box-shadow: 0 2px 10px rgba(16, 24, 40, 0.12);
 }
 
+/* Both pills live in the bottom strip. The rulers own the top and left edges,
+   so anything floated up there sits on top of the measurements. */
 .gsb-float-history {
-  top: 12px;
-  left: 12px;
+  bottom: 16px;
+  right: 16px;
 }
 
 .gsb-float-zoom {
@@ -795,73 +797,92 @@
   box-shadow: 0 4px 14px rgba(16, 20, 30, 0.12);
 }
 
-/* Empty state */
-.gsb-empty-state {
+/* Faint prompt in the middle of an empty sheet — a label, not a control, so it
+   never blocks a drop or a click. */
+.gsb-canvas-hint {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  gap: 8px;
-  padding: 24px;
-}
-
-.gsb-empty-state h2 {
   margin: 0;
-  font-size: 18px;
-}
-
-.gsb-empty-state p {
-  margin: 0;
-  color: #6b7280;
+  color: #98a2b3;
   font-size: 13px;
+  pointer-events: none;
 }
 
-.gsb-empty-cards {
+/* Start-here modal */
+.gsb-start-modal {
+  position: relative;
+  text-align: center;
+  max-width: 620px;
+}
+
+.gsb-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  appearance: none;
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gsb-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.gsb-modal-close:hover {
+  background: #f2f4f7;
+  color: #101828;
+}
+
+.gsb-start-options {
   display: flex;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 20px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-/* Filled primary buttons, with the helper line sitting outside the button so
-   the tap target stays a solid block of accent colour. */
-.gsb-empty-card {
+.gsb-start-option {
   appearance: none;
-  border: 1px solid var(--gsb-accent);
-  background: var(--gsb-accent);
-  color: #ffffff;
+  flex: 1 1 160px;
+  border: 1px solid var(--gsb-border);
+  background: #ffffff;
   border-radius: 10px;
-  padding: 12px 18px;
-  min-width: 160px;
+  padding: 18px 14px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  text-align: center;
-  font-weight: 600;
+  color: #101828;
 }
 
-.gsb-empty-card:hover {
-  background: var(--gsb-accent-hover);
-  border-color: var(--gsb-accent-hover);
+.gsb-start-option:hover {
+  border-color: var(--gsb-accent);
+  background: var(--gsb-accent-soft);
 }
 
-.gsb-empty-card strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.gsb-start-option .gsb-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--gsb-accent);
+}
+
+.gsb-start-option strong {
   font-size: 14px;
 }
 
-.gsb-empty-card span {
+.gsb-start-option span {
   font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--gsb-muted);
+}
+
+.gsb-start-skip {
+  margin-top: 18px;
 }
 
 /* Right panel stats */

@@ -20,6 +20,7 @@ import { removeBackground } from "./imageOps";
 import AutoBuilderModal from "./AutoBuilderModal";
 import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
 import Icon from "./Icon";
+import StartModal from "./StartModal";
 
 const MATERIALS = ["DTF", "UV DTF", "Glitter", "Glow in the Dark", "Gold Foil", "Silver Foil"];
 
@@ -81,6 +82,9 @@ export default function GangSheetBuilderApp({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toolMode, setToolMode] = useState("select");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  // Shown once per visit on arrival. Once dismissed it stays dismissed, even if
+  // the customer later clears the sheet back to empty.
+  const [startModalOpen, setStartModalOpen] = useState(true);
   const [recolorTarget, setRecolorTarget] = useState(null);
   const [busyOp, setBusyOp] = useState(null);
 
@@ -118,7 +122,11 @@ export default function GangSheetBuilderApp({
       // An explicit ?ft= from the PDP is the customer's just-made choice, so it
       // wins over whatever length the saved draft happens to carry.
       if (draft.sheetLengthFt && !initialSheetFt) setSheetLengthFt(draft.sheetLengthFt);
-      if (draft.canvasJson) canvasApi.importState(draft.canvasJson);
+      if (draft.canvasJson) {
+        canvasApi.importState(draft.canvasJson);
+        // Returning to work in progress — don't greet them with the start prompt.
+        setStartModalOpen(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasApi.ready]);
@@ -544,11 +552,6 @@ export default function GangSheetBuilderApp({
           onZoomReset={canvasApi.zoomReset}
           onZoomFit={handleZoomFit}
           isEmpty={items.length === 0}
-          onManualBuildCta={() => setUploadOpen(true)}
-          onAutoBuildCta={() =>
-            library.length > 0 ? setAutoBuilderOpen(true) : setUploadOpen(true)
-          }
-          onNamesNumbersCta={() => setNamesNumbersOpen(true)}
           selection={canvasApi.selection}
           onDuplicateSelected={canvasApi.duplicateSelected}
           onDeleteSelected={canvasApi.removeSelected}
@@ -583,6 +586,17 @@ export default function GangSheetBuilderApp({
       />
 
       {errorMsg && <div className="gsb-toast gsb-toast-error">{errorMsg}</div>}
+
+      {startModalOpen && items.length === 0 && (
+        <StartModal
+          onClose={() => setStartModalOpen(false)}
+          onManualBuild={() => setUploadOpen(true)}
+          onAutoBuild={() =>
+            library.length > 0 ? setAutoBuilderOpen(true) : setUploadOpen(true)
+          }
+          onNamesNumbers={() => setNamesNumbersOpen(true)}
+        />
+      )}
 
       {clearConfirmOpen && (
         <ConfirmModal
