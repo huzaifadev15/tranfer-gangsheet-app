@@ -1,4 +1,6 @@
-const PRESETS_FT = [2, 5, 7, 10, 15, 20, 30, 40];
+// Kept in sync with the size buttons on the storefront gang sheet PDP so a
+// deep-linked ?ft= lands on a preset rather than falling through to "Custom".
+const PRESETS_FT = [1, 2, 5, 7, 10, 15, 20, 30, 40];
 const MAX_FT = 40;
 
 export default function SheetSizeControl({ valueFt, onChange }) {

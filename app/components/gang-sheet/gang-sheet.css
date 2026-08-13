@@ -56,9 +56,37 @@
   flex-shrink: 0;
 }
 
+.gsb-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .gsb-topbar-eyebrow {
   font-weight: 700;
   font-size: 15px;
+}
+
+/* Price carried over from the storefront PDP selection. */
+.gsb-topbar-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1a56db;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.gsb-topbar-price em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  color: #475467;
 }
 
 .gsb-topbar-controls {
