@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ImageLibrary from "./ImageLibrary";
+import Icon from "./Icon";
 
 export default function LeftPanel({
   onAddImagesClick,
@@ -27,6 +28,7 @@ export default function LeftPanel({
         onClick={onNamesNumbersClick}
         disabled={busy}
       >
+        <Icon name="text" />
         Names &amp; Numbers
       </button>
 
@@ -36,7 +38,8 @@ export default function LeftPanel({
         onClick={onAddImagesClick}
         disabled={busy}
       >
-        + Add Images
+        <Icon name="plus" />
+        Add Images
       </button>
 
       <p className="gsb-format-note">PNG, JPG, SVG, PDF</p>
@@ -57,6 +60,7 @@ export default function LeftPanel({
             if (e.dataTransfer.files?.length) onFilesDropped(e.dataTransfer.files);
           }}
         >
+          <Icon name="image" className="gsb-dropzone-icon" />
           <p className="gsb-dropzone-hint">Drop images here or click upload</p>
         </button>
       )}
@@ -68,7 +72,9 @@ export default function LeftPanel({
         onClear={onClearLibrary}
       />
 
-      <div className="gsb-panel-heading">Smart layout</div>
+      {/* Smart layout and selection sit at the foot of the panel so the upload
+          flow stays at the top where the eye lands first. */}
+      <div className="gsb-panel-heading gsb-panel-heading-footer">Smart layout</div>
       <button
         type="button"
         className="gsb-btn gsb-btn-primary gsb-btn-block"
@@ -76,6 +82,7 @@ export default function LeftPanel({
         disabled={busy || library.length === 0}
         title={library.length === 0 ? "Upload images first" : "Arrange all uploads onto the sheet"}
       >
+        <Icon name="wand" />
         Auto Build
       </button>
       <button
@@ -84,6 +91,7 @@ export default function LeftPanel({
         onClick={onTidyCanvasClick}
         disabled={busy || !hasItems}
       >
+        <Icon name="broom" />
         Tidy Canvas
       </button>
 
@@ -95,6 +103,7 @@ export default function LeftPanel({
           onClick={onDuplicateSelected}
           disabled={!hasSelection}
         >
+          <Icon name="copy" />
           Duplicate
         </button>
         <button
@@ -103,6 +112,7 @@ export default function LeftPanel({
           onClick={onDeleteSelected}
           disabled={!hasSelection}
         >
+          <Icon name="trash" />
           Delete
         </button>
       </div>
