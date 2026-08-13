@@ -22,6 +22,22 @@ import { findOverlaps, findOutOfBounds, MIN_GAP_IN } from "./overlap";
 
 const MATERIALS = ["DTF", "UV DTF", "Glitter", "Glow in the Dark", "Gold Foil", "Silver Foil"];
 
+// Storefront film-style option values (see the DTF gang sheet PDP section in
+// the theme) mapped onto the material names used here.
+const FILM_TO_MATERIAL = {
+  "vivid-af": "DTF",
+  "uv-dtf": "UV DTF",
+  glitter: "Glitter",
+  "glow-in-dark": "Glow in the Dark",
+  "gold-foil": "Gold Foil",
+  "silver-foil": "Silver Foil",
+};
+
+function materialFromFilm(film) {
+  if (!film) return null;
+  return FILM_TO_MATERIAL[String(film).toLowerCase()] ?? null;
+}
+
 const DEFAULT_SETTINGS = {
   canvasMarginIn: 1,
   imageMarginIn: 1,
@@ -34,14 +50,22 @@ function makeTempId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function GangSheetBuilderApp({ shop }) {
+export default function GangSheetBuilderApp({
+  shop,
+  initialSheetFt = null,
+  initialFilm = null,
+  initialPrice = null,
+  initialVariantId = null,
+}) {
   const canvasElRef = useRef(null);
   const viewportRef = useRef(null);
   const restoredRef = useRef(false);
   const autoFitRef = useRef(false);
 
-  const [sheetLengthFt, setSheetLengthFt] = useState(2);
-  const [material, setMaterial] = useState(MATERIALS[0]);
+  const [sheetLengthFt, setSheetLengthFt] = useState(initialSheetFt || 2);
+  const [material, setMaterial] = useState(
+    materialFromFilm(initialFilm) ?? MATERIALS[0],
+  );
   const [items, setItems] = useState([]);
   const [library, setLibrary] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -90,7 +114,9 @@ export default function GangSheetBuilderApp({ shop }) {
     restoredRef.current = true;
     const draft = restoreDraft(shop);
     if (draft) {
-      if (draft.sheetLengthFt) setSheetLengthFt(draft.sheetLengthFt);
+      // An explicit ?ft= from the PDP is the customer's just-made choice, so it
+      // wins over whatever length the saved draft happens to carry.
+      if (draft.sheetLengthFt && !initialSheetFt) setSheetLengthFt(draft.sheetLengthFt);
       if (draft.canvasJson) canvasApi.importState(draft.canvasJson);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -382,6 +408,15 @@ export default function GangSheetBuilderApp({ shop }) {
       <header className="gsb-topbar">
         <div className="gsb-topbar-title">
           <span className="gsb-topbar-eyebrow">Gang Sheet Builder</span>
+          {initialPrice && (
+            <span
+              className="gsb-topbar-price"
+              data-variant-id={initialVariantId || undefined}
+            >
+              {initialPrice}
+              <em>{sheetLengthFt} ft selected</em>
+            </span>
+          )}
         </div>
         <div className="gsb-topbar-controls">
           <div className="gsb-topbar-field">

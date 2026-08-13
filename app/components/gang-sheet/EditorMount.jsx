@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 // APIs touched; the real editor (which needs window/document/canvas) is
 // lazy-imported here, after mount, so Fabric/pdfjs never load during SSR and
 // never bloat the route's initial JS chunk.
-export default function EditorMount({ shop }) {
+export default function EditorMount({ shop, ...editorProps }) {
   const [Editor, setEditor] = useState(null);
 
   useEffect(() => {
@@ -26,5 +26,5 @@ export default function EditorMount({ shop }) {
     );
   }
 
-  return <Editor shop={shop} />;
+  return <Editor shop={shop} {...editorProps} />;
 }
