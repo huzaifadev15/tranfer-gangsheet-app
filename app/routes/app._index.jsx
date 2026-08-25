@@ -8,7 +8,8 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
 
   // TODO: remove before shipping - debug only
-  return { accessToken: session.accessToken };
+  // return { accessToken: session.accessToken };
+  return null;
 };
 
 export const action = async ({ request }) => {
@@ -118,7 +119,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Index() {
-  const { accessToken } = useLoaderData();
+  // const { accessToken } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const isLoading =
@@ -138,7 +139,7 @@ export default function Index() {
         Generate a product
       </s-button>
 
-      {/* TODO: remove before shipping - debug only, shows admin access token */}
+      {/* TODO: remove before shipping - debug only, shows admin access token
       <s-section heading="Debug: Admin access token">
         <s-box
           padding="base"
@@ -151,6 +152,7 @@ export default function Index() {
           </pre>
         </s-box>
       </s-section>
+      */}
 
       <s-section heading="Congrats on creating a new Shopify app 🎉">
         <s-paragraph>
