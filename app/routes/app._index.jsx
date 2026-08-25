@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
-  return null;
+  // TODO: remove before shipping - debug only
+  return { accessToken: session.accessToken };
 };
 
 export const action = async ({ request }) => {
@@ -117,6 +118,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Index() {
+  const { accessToken } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const isLoading =
@@ -135,6 +137,20 @@ export default function Index() {
       <s-button slot="primary-action" onClick={generateProduct}>
         Generate a product
       </s-button>
+
+      {/* TODO: remove before shipping - debug only, shows admin access token */}
+      <s-section heading="Debug: Admin access token">
+        <s-box
+          padding="base"
+          borderWidth="base"
+          borderRadius="base"
+          background="subdued"
+        >
+          <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            <code>{accessToken}</code>
+          </pre>
+        </s-box>
+      </s-section>
 
       <s-section heading="Congrats on creating a new Shopify app 🎉">
         <s-paragraph>
