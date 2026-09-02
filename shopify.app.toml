@@ -50,7 +50,11 @@ api_version = "2026-10"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://tranfer-gangsheet-app.vercel.app/auth/callback" ]
+redirect_urls = [
+  "https://tranfer-gangsheet-app.vercel.app/auth/callback",
+  # One-off offline-token flow (home page -> /admin-token/start -> here).
+  "https://tranfer-gangsheet-app.vercel.app/admin-token/callback"
+]
 
 [build]
 automatically_update_urls_on_dev = true

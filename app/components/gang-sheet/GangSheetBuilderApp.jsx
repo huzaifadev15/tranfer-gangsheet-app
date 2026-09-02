@@ -203,6 +203,50 @@ export default function GangSheetBuilderApp({
     setBusy(false);
   }, []);
 
+  // Artwork handed over from a storefront product page. The PDF stashes the
+  // file in IndexedDB and sends the customer here; the app proxy serves this
+  // editor from the shop's own domain, so it is the same origin and can read
+  // that record. One-shot: the record is cleared once ingested so a refresh
+  // doesn't re-add the same file.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.indexedDB) return;
+
+    let cancelled = false;
+    const req = window.indexedDB.open("fineyst-dtf", 1);
+
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("files")) db.createObjectStore("files");
+    };
+
+    req.onsuccess = () => {
+      const db = req.result;
+      if (cancelled || !db.objectStoreNames.contains("files")) return;
+
+      const tx = db.transaction("files", "readwrite");
+      const store = tx.objectStore("files");
+      const get = store.get("pending");
+
+      get.onsuccess = () => {
+        const rec = get.result;
+        if (!rec?.blob || cancelled) return;
+        store.delete("pending");
+
+        const file =
+          rec.blob instanceof File
+            ? rec.blob
+            : new File([rec.blob], rec.name || "artwork", {
+                type: rec.type || "",
+              });
+        handleFilesSelected([file]);
+      };
+    };
+
+    return () => {
+      cancelled = true;
+    };
+  }, [handleFilesSelected]);
+
   const handlePlaceLibraryItem = useCallback(
     async (item) => {
       setBusy(true);
