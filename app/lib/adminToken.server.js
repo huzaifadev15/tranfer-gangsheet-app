@@ -142,7 +142,18 @@ export async function completeTokenCallback(searchParams) {
 
   try {
     const data = await exchangeCodeForToken({ shop, code, apiKey, apiSecret });
-    return { shop, accessToken: data.access_token, scope: data.scope };
+    // Shopify only returns expires_in / refresh_token when the app is on
+    // expiring offline access tokens. Their absence means the token is the
+    // classic non-expiring kind, valid until the app is uninstalled.
+    const expiresIn = Number(data.expires_in) || null;
+    return {
+      shop,
+      accessToken: data.access_token,
+      scope: data.scope,
+      expiresIn,
+      expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
+      refreshToken: data.refresh_token || null,
+    };
   } catch (error) {
     return { error: error?.message || "Token exchange failed." };
   }

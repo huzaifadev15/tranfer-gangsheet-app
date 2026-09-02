@@ -66,6 +66,32 @@ export default function AdminTokenCallback() {
         Granted scopes: <code>{data.scope}</code>
       </p>
 
+      {data.expiresIn ? (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#9a3412",
+            background: "#fff7ed",
+            border: "1px solid #fed7aa",
+            borderRadius: 8,
+            padding: "10px 12px",
+          }}
+        >
+          <strong>This token expires.</strong> Valid for{" "}
+          {Math.round(data.expiresIn / 3600)}h (until{" "}
+          {new Date(data.expiresAt).toLocaleString()}). The app is configured
+          with <code>expiringOfflineAccessTokens</code>, so it must be
+          refreshed or regenerated before it lapses
+          {data.refreshToken ? " (a refresh token was issued)" : ""}.
+        </p>
+      ) : (
+        <p style={{ fontSize: 13, color: "#166534" }}>
+          <strong>No expiry.</strong> Shopify returned no{" "}
+          <code>expires_in</code>, so this is a standard offline token — it
+          stays valid until the app is uninstalled or the token is revoked.
+        </p>
+      )}
+
       <p
         style={{
           fontSize: 13,

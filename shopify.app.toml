@@ -7,7 +7,9 @@ embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_metaobjects,write_metaobject_definitions,write_app_proxy"
+# write_files      -> upload route: stagedUploadsCreate + fileCreate
+# write_draft_orders -> checkout route: draftOrderCreate
+scopes = "write_products,write_metaobjects,write_metaobject_definitions,write_app_proxy,write_files,write_draft_orders"
 
 [app_proxy]
 url = "https://tranfer-gangsheet-app.vercel.app/apps/gang-sheet-builder"
