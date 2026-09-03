@@ -16,7 +16,14 @@ const shopify = shopifyApp({
   sessionStorage: new MemorySessionStorage(),
   distribution: AppDistribution.AppStore,
   future: {
-    expiringOfflineAccessTokens: true,
+    // Must stay false. When true the library calls
+    //   api.auth.tokenExchange({ expiring: true })
+    // on embedded admin loads, which asks Shopify for an *expiring* offline
+    // token and rotates the shop's existing one — silently invalidating the
+    // long-lived token stored in SHOPIFY_ACCESS_TOKEN.
+    // With it false we get classic offline tokens: valid until the app is
+    // uninstalled, so a generated token keeps working indefinitely.
+    expiringOfflineAccessTokens: false,
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
