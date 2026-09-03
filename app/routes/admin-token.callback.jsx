@@ -81,8 +81,7 @@ export default function AdminTokenCallback() {
           {Math.round(data.expiresIn / 3600)}h (until{" "}
           {new Date(data.expiresAt).toLocaleString()}). The app is configured
           with <code>expiringOfflineAccessTokens</code>, so it must be
-          refreshed or regenerated before it lapses
-          {data.refreshToken ? " (a refresh token was issued)" : ""}.
+          refreshed or regenerated before it lapses.
         </p>
       ) : (
         <p style={{ fontSize: 13, color: "#166534" }}>
@@ -91,6 +90,18 @@ export default function AdminTokenCallback() {
           stays valid until the app is uninstalled or the token is revoked.
         </p>
       )}
+
+      {data.refreshToken ? (
+        <>
+          <p style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>
+            A refresh token was also issued. Store it if you want to mint new
+            access tokens without repeating this flow:
+          </p>
+          <code style={codeBox}>
+            SHOPIFY_REFRESH_TOKEN={data.refreshToken}
+          </code>
+        </>
+      ) : null}
 
       <p
         style={{
