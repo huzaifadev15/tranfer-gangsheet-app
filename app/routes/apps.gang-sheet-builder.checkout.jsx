@@ -18,10 +18,16 @@ import { getProxyAdmin } from "../lib/adminClient.server";
 //   2. `unitPrice` — a hidden product/variant is created at the quoted price,
 //      the same fallback the Express app uses. Cleaned up if anything fails.
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -142,10 +148,14 @@ async function createCheckoutProductForItem(gql, item) {
   return { productId: product.id, variantId, unitPrice, productTitle: title };
 }
 
-export const action = async ({ request }) => {
-  if (request.method !== "POST") {
-    return json({ ok: false, message: "Method not allowed" }, 405);
+export const loader = async ({ request }) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
+  return json({ ok: false, message: "Method not allowed" }, 405);
+};
+
+export const action = async ({ request }) => {
 
   let gql;
   try {
