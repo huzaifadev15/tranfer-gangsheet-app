@@ -32,7 +32,15 @@ function normalizeShopDomain(shop) {
  * @throws  {Response} 401 when neither a session nor an env token is available.
  */
 export async function getProxyAdmin(request) {
-  const { admin, session } = await authenticate.public.appProxy(request);
+  let admin = null;
+  let session = null;
+
+  try {
+    ({ admin, session } = await authenticate.public.appProxy(request));
+  } catch {
+    // Request didn't come through Shopify's App Proxy (no valid HMAC) —
+    // fall through to the env-token path below.
+  }
 
   const url = new URL(request.url);
   const shop = normalizeShopDomain(
