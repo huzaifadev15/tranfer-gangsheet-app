@@ -755,6 +755,17 @@ export function useFabricCanvas({
     return canvas.toJSON(CUSTOM_PROPS);
   }, []);
 
+  // Export the current canvas as a PNG data URL at the given pixel multiplier
+  // (1 = 96 PPI screen resolution; use 300/96 ≈ 3.125 for print-ready).
+  // Deselects objects first so selection handles don't appear in the export.
+  const exportToPng = useCallback((multiplier = 1) => {
+    const canvas = fabricRef.current;
+    if (!canvas) return null;
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    return canvas.toDataURL({ format: "png", multiplier });
+  }, []);
+
   const importState = useCallback(async (json) => {
     const canvas = fabricRef.current;
     if (!canvas || !json) return;
@@ -803,6 +814,7 @@ export function useFabricCanvas({
     redo,
     tidyCanvas,
     exportState,
+    exportToPng,
     importState,
   };
 }

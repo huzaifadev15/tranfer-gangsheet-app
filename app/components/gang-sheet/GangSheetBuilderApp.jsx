@@ -87,6 +87,7 @@ export default function GangSheetBuilderApp({
   const [startModalOpen, setStartModalOpen] = useState(true);
   const [recolorTarget, setRecolorTarget] = useState(null);
   const [busyOp, setBusyOp] = useState(null);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   const allowOverlaps = settings.allowOverlaps;
   const setAllowOverlaps = useCallback(
@@ -350,6 +351,58 @@ export default function GangSheetBuilderApp({
     const ok = saveDraft(shop, { canvasJson, sheetLengthFt });
     setSaveStatus(ok ? "Saved to this browser" : "Couldn't save — storage unavailable");
   }, [canvasApi, shop, sheetLengthFt]);
+
+  const handleCheckout = useCallback(async () => {
+    if (items.length === 0) return;
+    setCheckoutBusy(true);
+    setErrorMsg(null);
+    try {
+      // 1. Export canvas to PNG data URL (96 PPI preview).
+      const dataUrl = canvasApi.exportToPng(1);
+      if (!dataUrl) throw new Error("Could not export canvas.");
+
+      // 2. Convert to Blob and POST to the upload route.
+      const blob = await fetch(dataUrl).then((r) => r.blob());
+      const formData = new FormData();
+      formData.append("file", blob, "gang-sheet-preview.png");
+
+      const uploadRes = await fetch("/apps/gang-sheet-builder/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) throw new Error(uploadData.error || "Upload failed.");
+
+      // 3. Parse price — initialPrice may be a formatted string like "$16.99".
+      const unitPrice = initialPrice
+        ? parseFloat(String(initialPrice).replace(/[^0-9.]/g, "")) || null
+        : null;
+
+      // 4. Create the draft order.
+      const checkoutRes = await fetch("/apps/gang-sheet-builder/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          variantId: initialVariantId || null,
+          sheetFt: sheetLengthFt,
+          film: material,
+          imageCount: items.length,
+          artworkUrl: uploadData.url,
+          previewUrl: uploadData.url,
+          unitPrice,
+          quantity: 1,
+        }),
+      });
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutData.ok) throw new Error(checkoutData.message || "Checkout failed.");
+
+      // 5. Redirect to the Shopify draft order invoice page.
+      window.location.href = checkoutData.invoiceUrl;
+    } catch (err) {
+      setErrorMsg(err.message || "Could not proceed to checkout. Please try again.");
+      setCheckoutBusy(false);
+    }
+  }, [canvasApi, items, sheetLengthFt, material, initialVariantId, initialPrice]);
 
   const handleZoomFit = useCallback(() => {
     const el = viewportRef.current;
@@ -617,6 +670,8 @@ export default function GangSheetBuilderApp({
           onSelectItem={canvasApi.selectById}
           onRemoveItem={canvasApi.removeById}
           onDuplicateItem={handleDuplicateById}
+          onCheckout={handleCheckout}
+          checkoutBusy={checkoutBusy}
         />
       </div>
 

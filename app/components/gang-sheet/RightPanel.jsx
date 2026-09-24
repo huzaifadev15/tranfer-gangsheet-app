@@ -35,6 +35,8 @@ export default function RightPanel({
   onRemoveItem,
   onDuplicateItem,
   selectedId,
+  onCheckout,
+  checkoutBusy,
 }) {
   const groups = groupItems(items);
 
@@ -47,11 +49,17 @@ export default function RightPanel({
       <button
         type="button"
         className="gsb-btn gsb-btn-primary gsb-btn-block"
-        disabled
-        title="Coming soon"
+        onClick={onCheckout}
+        disabled={checkoutBusy || items.length === 0}
       >
-        <Icon name="cart" />
-        Add to Cart
+        {checkoutBusy ? (
+          "Processing…"
+        ) : (
+          <>
+            <Icon name="cart" />
+            Add to Cart
+          </>
+        )}
       </button>
       {saveStatus && <p className="gsb-save-status">{saveStatus}</p>}
 
